@@ -21,10 +21,9 @@
   exclusion).
 
   The ledger stays append-only on every backend."
-  (:require #?(:clj  [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])
-            [clojure.string :as str]
-            [langchain.db :as d]))
+  (:require [clojure.string :as str]
+            [langchain.db :as d]
+            [langchain-store.core :as ls]))
 
 (defprotocol Store
   (vehicle [s vin])
@@ -130,8 +129,8 @@
    :contract/tenant    {:db/unique :db.unique/identity}
    :ledger/seq         {:db/unique :db.unique/identity}})
 
-(defn- enc [v] (pr-str v))
-(defn- dec* [s] (when s (edn/read-string s)))
+(defn- enc [v] (ls/enc v))
+(defn- dec* [s] (ls/dec* s))
 
 (defn- vehicle->tx [{:keys [vin make model year title-status price]}]
   (cond-> {:vehicle/vin vin}

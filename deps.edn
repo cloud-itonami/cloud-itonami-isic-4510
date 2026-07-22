@@ -1,6 +1,10 @@
 {:paths ["src"]
  :deps {io.github.kotoba-lang/langgraph
-        {:local/root "../../kotoba-lang/langgraph"}}
+        {:local/root "../../kotoba-lang/langgraph"}
+        ;; shared langchain.db store seam (EDN-blob codec + identity
+        ;; schema + field-spec entity helpers), ADR-2607141600.
+        io.github.kotoba-lang/langchain-store
+        {:local/root "../../kotoba-lang/langchain-store"}}
  :aliases
  {:dev {:override-deps
         {io.github.kotoba-lang/langchain

@@ -2,9 +2,9 @@ name: ci
 
 # This project is a standalone open-business blueprint (not west-registered).
 # Its deps reference sibling repos via :local/root (../../kotoba-lang/
-# langgraph, .../langchain). Those two are PUBLIC, so the test job
-# reconstructs the workspace layout by checking them out into the expected
-# relative paths — no token needed.
+# langgraph, .../langchain, .../langchain-store). All three are PUBLIC,
+# so the test job reconstructs the workspace layout by checking them out
+# into the expected relative paths — no token needed.
 
 on:
   push:
@@ -37,6 +37,10 @@ jobs:
         with:
           repository: kotoba-lang/langchain
           path: orgs/kotoba-lang/langchain
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/langchain-store
+          path: orgs/kotoba-lang/langchain-store
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "21" }
       - uses: DeLaGuardo/setup-clojure@13.0
