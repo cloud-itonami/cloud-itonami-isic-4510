@@ -1,0 +1,39 @@
+[{:itonami.blueprint/id "cloud-itonami-isic-4510"
+  :itonami.blueprint/name "Sale of motor vehicles"
+  :itonami.blueprint/isic-rev5 "4510"
+  :itonami.blueprint/domain :automotive/vehicle-sales
+  :itonami.blueprint/license "AGPL-3.0-or-later"
+  :itonami.blueprint/social-impact [:consumer-protection :transparency :road-safety]
+  :itonami.blueprint/governor :vehicle-sale-governor
+  :itonami.blueprint/robotics false
+  :itonami.blueprint/required-technologies [:identity :forms :dmn :bpmn :audit-ledger]
+  :itonami.blueprint/optional-technologies []
+  :itonami.blueprint/status :public-oss
+  :itonami.blueprint/maturity :implemented
+  :itonami.blueprint/implemented-slice
+  "VehicleSale-LLM ⊣ VehicleSaleGovernor, langgraph-clj StateGraph
+  (langgraph.graph, vehiclesale.operation/build: intake -> advise ->
+  govern -> decide -+-> commit / request-approval -> commit / hold),
+  interrupt-before #{:request-approval} + in-memory checkpointer for
+  real human-in-the-loop resume (title officer approves/rejects), and
+  an append-only audit ledger (vehiclesale.store/ledger +
+  append-ledger!, MemStore + DatomicStore parity). The Governor
+  (src/vehiclesale/policy.cljc) runs 8 checks in priority order --
+  5 HARD (rbac, lien-clearance-gate, odometer-disclosure-gate,
+  source-provenance-gate, licensed-disclosure) a human approver cannot
+  override, plus 3 SOFT/always-escalate (confidence floor,
+  salvage-title-gate, dispute-request) that route to a human reviewer.
+  Deliberately narrow scope: this actor lists, discloses and confirms
+  sale DECISIONS only -- there is no field anywhere in the schema for
+  payment processing, escrow, or funds transfer (docs/adr/0001,
+  src/vehiclesale/store.cljc). Provenance is limited to real, citable
+  public reference sources (src/vehiclesale/facts.cljc: the DOJ NMVTIS
+  one-report-per-VIN gateway, NHTSA recalls) plus one structural class,
+  :operator-licensed-dmv-feed, for operator-registered state DMV
+  title/lien access (no nationwide free source exists for that data).
+  Test suite (clojure -M:dev:test) and clj-kondo (clojure -M:lint) both
+  green; governance-doc set (LICENSE, GOVERNANCE.md, CONTRIBUTING.md,
+  SECURITY.md, CODE_OF_CONDUCT.md), docs/ (business model, design ADR,
+  operator guide) and CI (.github/workflows/ci.yml, lint+test,
+  sibling-checkout pattern for :local/root deps) already present."
+  :db/id -1}]
