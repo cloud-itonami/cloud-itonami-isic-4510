@@ -3,13 +3,14 @@
 Open Business Blueprint for **ISIC Rev.4 4510**: sale of motor vehicles —
 a dealership/marketplace for new and used vehicles.
 
-The **product face** is a used-car search (`docs/index.html`) across a
-closed set of demo markets (JP, US, DE, GB, AU, AE, and destination
-quotes for NZ/CA/FR/SG). Filter by maker / country / region / body /
-JPY-equivalent price / mileage, open a listing, see export/import
-procedure labels and a landed-cost *estimate*, send a dealer inquiry.
-Search is a pure catalog read (`vehiclesale.catalog`). Writes still go
-through VehicleSale-LLM ⊣ VehicleSaleGovernor.
+The **product face** is a used-car search (`docs/index.html`) centred on
+Japan stock, then the highest-demand Japan-export destinations (UAE,
+Tanzania, Kenya, New Zealand). Filter by maker / country / export
+destination eligibility / region / body / JPY-equivalent price /
+mileage. Open a listing to see KS 1515 age / SEVS regime eligibility
+beside a landed-cost *estimate*. Search is a pure catalog read
+(`vehiclesale.catalog`). Writes still go through VehicleSale-LLM ⊣
+VehicleSaleGovernor.
 
 Distinct from [`cloud-itonami-isic-4774`](https://github.com/cloud-itonami/cloud-itonami-isic-4774)
 (general second-hand goods): vehicles have their own regime. US listings
@@ -93,5 +94,8 @@ Open `docs/index.html` (fragment SPA: `#search` / `#v/<vin>` / `#operator`).
 - Do not file a customs declaration or treat an HS candidate as adjudicated.
 - Do not invent a duty/VAT/freight when the closed market table has no row.
 - Do not treat `:zz` as a real country (denied-destination fixture only).
+- Do not quote a Kenya import that fails KS 1515's eight-year YoR cap.
+- Do not treat ordinary JP passenger cars as Australia-importable (SEVS / RAWS / 25-year only).
+- Do not put Russia in the closed market table; sanctions lists are operator input.
 
 License: AGPL-3.0-or-later.
