@@ -15,6 +15,7 @@
             [jp-go-dds.tokens :as tokens]
             [langgraph.graph :as g]
             [vehiclesale.body :as body]
+            [vehiclesale.border :as border]
             [vehiclesale.catalog :as catalog]
             [vehiclesale.commerce :as commerce]
             [vehiclesale.operation :as op]
@@ -163,6 +164,65 @@
                     dealer)]
       (when (= :interrupted (:status r))
         (approve! actor "salvage")))
+    ;; HARD: unknown ISO (not a duty invention)
+    (exec! actor "unknown-iso"
+           {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :xx}
+           dealer)
+    ;; HARD: denied destination fixture :zz
+    (exec! actor "denied-zz"
+           {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :zz}
+           dealer)
+    ;; HARD: RHD → LHD without waiver (JP → US)
+    (exec! actor "steering"
+           {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :us :export-certified? true :import-permit? true}
+           dealer)
+    ;; HARD: export certificate missing (JP → AU, both RHD)
+    (exec! actor "no-export"
+           {:op :sale/confirm :subject "JP-200" :vin "JP-200"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :au}
+           dealer)
+    ;; HARD: import permit missing (export claimed)
+    (exec! actor "no-import"
+           {:op :sale/confirm :subject "JP-200" :vin "JP-200"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :gb :export-certified? true}
+           dealer)
+    ;; HARD: Singapore ARF/OMV uncomputable
+    (exec! actor "sg-uncomputable"
+           {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :sg :export-certified? true :import-permit? true}
+           dealer)
+    ;; HARD: manufactured landed total
+    (exec! actor "fake-tariff"
+           {:op :border/quote :subject "JP-100" :vin "JP-100"
+            :dest-country :de
+            :quote {:landed/computable? true :landed/total-minor 1
+                    :landed/customs-value-minor 1 :landed/duty-minor 0
+                    :landed/vat-minor 0 :landed/conserved? true}}
+           dealer)
+    ;; HARD: self-adjudicated HS
+    (exec! actor "hs-adj"
+           {:op :border/quote :subject "JP-100" :vin "JP-100"
+            :dest-country :de
+            :hs {:hs "870323" :adjudicated? true}}
+           dealer)
+    ;; HARD: DE listing without dealer licence
+    (exec! actor "no-dealer-lic"
+           (merge (get-in (store/demo-data) [:vehicles "DE-100"])
+                  {:op :vehicle/list :subject "DE-100" :vin "DE-100"
+                   :dealer-license "" :odometer 42000
+                   :source {:class :operator-licensed-eu-type-feed
+                            :ref "eu-type-demo:DE-100"
+                            :license-id "eu-type-demo"}})
+           dealer)
     db))
 
 (defn- listings [db]
@@ -208,20 +268,23 @@
          :data-make (:make listing)
          :data-prefecture (some-> (:prefecture listing) name)
          :data-year (str (:year listing))
-         :data-price (str (long (:price listing)))
+         :data-price (str (or (catalog/price-jpy listing) 0))
          :data-mileage (str (:mileage listing))
          :data-body (some-> (:body-type listing) name)
+         :data-country (name (or (:country listing) (:jurisdiction listing) :na))
          :data-q (str (:make listing) " " (:model listing) " " (:grade listing) " "
-                      (get catalog/prefectures (:prefecture listing)))}
+                      (get catalog/prefectures (:prefecture listing)) " "
+                      (:country-label listing))}
      (dds/heading 3 (:title c) {:size "20"})
      [:p {:class "price"} (:price c)]
      [:p {:class "meta"}
-      (str (:year c) " · " (:mileage c) " · " (:prefecture c))]
+      (str (:year c) " · " (:mileage c) " · " (:prefecture c)
+           (when (:country c) (str " · " (:country c))))]
      [:p {:class "meta"}
       (str (:body c) " · " (:fuel c) " · " (:repair-history c))]
      [:p {:class "meta"}
-      (str "車検 " (:inspection c) " · 維持費概算 " (:annual-cost c)
-           (if (:scan-complete? c) " · スキャン完了" " · スキャン不足"))]
+      (str (when (:annual-cost c) (str "維持費概算 " (:annual-cost c) " · "))
+           (if (:scan-complete? c) "スキャン完了" "スキャン不足"))]
      [:p {:class "meta"} (:dealer c)]]))
 
 (defn- spec-row [k v]
@@ -252,30 +315,55 @@
      ["任意保険（仮定）" (catalog/yen (:voluntary-insurance-yen est))]
      ["合計（概算）" (catalog/yen (:total-yen est))]]))
 
+(defn- quote-rows [listing]
+  (mapv (fn [q]
+          [(name (:landed/dest q))
+           (str (:landed/hs q))
+           (catalog/money (:landed/customs-value-minor q) (:landed/currency q))
+           (str (/ (:landed/duty-bps q) 100.0) "%")
+           (catalog/money (:landed/duty-minor q) (:landed/currency q))
+           (catalog/money (:landed/vat-minor q) (:landed/currency q))
+           (catalog/money (:landed/total-minor q) (:landed/currency q))])
+        (border/quotes-from listing)))
+
+(defn- procedure-rows [listing]
+  (let [origin (border/origin-of listing)
+        dests (map :landed/dest (border/quotes-from listing))
+        dest (or (first (remove #{origin} dests)) origin)]
+    (mapv (fn [{:keys [id label required?]}]
+            [(name id) label (if required? "必須" "任意")])
+          (border/procedure origin dest))))
+
 (defn- detail-view [listing db]
   (let [c (catalog/card listing)
         vin (:vin listing)
         spec (:body-spec listing)
         cust (store/custody db vin)
         esc (first (filter #(= vin (:vin %)) (store/all-escrows db)))
-        plan (when-let [g (:price listing)] (commerce/plan g))]
+        yen-gross (catalog/price-jpy listing)
+        plan (when yen-gross (commerce/plan yen-gross))
+        quotes (quote-rows listing)
+        origin (border/origin-of listing)]
     [:section {:class "view" :id (str "view-" vin) :data-view (str "v/" vin)}
      (dds/heading 2 (:title c) {:size "32"})
      [:p {:class "price"} (:price c)]
      [:dl {:class "spec-dl"}
       (spec-row "年式" (:year c))
       (spec-row "走行距離" (:mileage c))
+      (spec-row "国" (:country c))
       (spec-row "地域" (:prefecture c))
       (spec-row "ボディ" (:body c))
       (spec-row "燃料" (:fuel c))
-      (spec-row "車検満了" (:inspection c))
+      (spec-row "検査満了" (:inspection c))
       (spec-row "修復歴" (:repair-history c))
+      (spec-row "ハンドル" (some-> (:steering listing) name))
       (spec-row "ドア / 定員" (when spec (str (:doors spec) " / " (:seats spec))))
       (spec-row "駆動" (:drive spec))
       (spec-row "車両重量" (:weight spec))
       (spec-row "寸法" (:size spec))
       (spec-row "販売店" (:dealer listing))
       (spec-row "古物商許可" (:kobutsusho-license listing))
+      (spec-row "販売免許" (:dealer-license listing))
       (spec-row "預かり" (some-> cust :status name))
       (spec-row "エスクロー" (or (some-> esc :status name) "未開設"))
       (spec-row "出品ID" vin)]
@@ -283,10 +371,21 @@
      (into [:div {:class "scan-grid"}] (scan-cells listing))
      [:p {:class "muted"}
       "CID はデモラベル（bafkdemo-…）。実バイトは取得しない。"]
-     (dds/heading 3 "年間維持費（概算）" {:size "24"})
-     (dds/table {:headers ["費目" "円/年"]
-                 :rows (cost-rows (:running-cost listing))})
-     [:p {:class "muted"} (get-in listing [:running-cost :assumption])]
+     (when (:running-cost listing)
+       (list (dds/heading 3 "年間維持費（概算・日本）" {:size "24"})
+             (dds/table {:headers ["費目" "円/年"]
+                         :rows (cost-rows (:running-cost listing))})
+             [:p {:class "muted"} (get-in listing [:running-cost :assumption])]))
+     (dds/heading 3 "国境手続（ラベル。通関申告はしない）" {:size "24"})
+     [:p {:class "muted"}
+      (str "出品国 " (name (or origin :na))
+           "。下記は閉じた市場への概算。関税率は test-fixture "
+           border/as-of "。HS は候補（未確定）。国境の賦課が正。")]
+     (when (seq quotes)
+       (dds/table {:headers ["仕向地" "HS候補" "CIF" "関税率" "関税" "VAT/GST" "概算合計"]
+                   :rows quotes}))
+     (dds/table {:headers ["手続" "内容" "要否"]
+                 :rows (procedure-rows listing)})
      (dds/heading 3 "情報面 x402（車両代金ではない）" {:size "24"})
      (dds/table {:headers ["資源" "価格" "内容"] :rows (x402-rows)})
      [:p {:class "muted"}
@@ -295,12 +394,14 @@
            (:plan/commission-bps plan) " bps · execute? false")]
      (dds/button "販売店へ問い合わせる（デモ）" {:href "#operator" :type :solid-fill})
      [:p {:class "muted"}
-      "問い合わせ・エスクロー開設・預かり更新は VehicleSaleGovernor を通る。この actor は送金しない（認可と証拠のみ）。"]
+      "問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。"]
      (dds/button "在庫一覧へ戻る" {:href "#search" :type :outline})]))
 
-(defn- search-view [jp-listings]
+(defn- search-view [listings]
   (let [maker-opts (into [["" "メーカー（すべて）"]]
-                         (map (fn [m] [m m]) (catalog/makers jp-listings)))
+                         (map (fn [m] [m m]) (catalog/makers listings)))
+        country-opts (into [["" "国（すべて）"]]
+                           (map (fn [[k v]] [(name k) v]) catalog/countries))
         pref-opts (into [["" "地域（すべて）"]]
                         (map (fn [[k v]] [(name k) v]) catalog/prefectures))
         body-opts (into [["" "ボディ（すべて）"]]
@@ -308,22 +409,23 @@
     [:section {:class "view is-active" :id "view-search" :data-view "search"}
      (dds/heading 2 "中古車を探す" {:size "32"})
      [:p {:class "muted"}
-      (str "掲載 " (count jp-listings)
-           " 台。架空のデモ在庫です。実在の車両・販売店ではありません。")]
+      (str "掲載 " (count listings)
+           " 台（閉じたデモ市場）。架空の在庫です。実在の車両・販売店ではありません。通関申告はしません。")]
      [:form {:class "filter-row" :id "search-form" :action "#" :onsubmit "return false;"}
       [:label "キーワード"
-       [:input {:type "search" :id "q" :name "q" :placeholder "メーカー・車種・地域"}]]
+       [:input {:type "search" :id "q" :name "q" :placeholder "メーカー・車種・国・地域"}]]
       [:label "メーカー" (dds/select {:id "make" :name "make" :value ""} maker-opts)]
+      [:label "国" (dds/select {:id "country" :name "country" :value ""} country-opts)]
       [:label "地域" (dds/select {:id "prefecture" :name "prefecture" :value ""} pref-opts)]
       [:label "ボディ" (dds/select {:id "body" :name "body" :value ""} body-opts)]
-      [:label "上限価格（万円）"
+      [:label "上限価格（万円・円換算）"
        [:input {:type "number" :id "price-max" :name "price-max" :min "0" :step "10"}]]
       [:label "上限走行（万km）"
        [:input {:type "number" :id "mileage-max" :name "mileage-max" :min "0" :step "1"}]]
       (dds/button "絞り込む" {:submit? true :type :solid-fill})]
      [:p {:class "muted" :id "result-count"}]
      (into [:div {:class "listing-grid" :id "listing-grid"}]
-           (map card-el jp-listings))]))
+           (map card-el listings))]))
 
 (defn- hold-rows [holds]
   (mapv (fn [{:keys [op subject basis violations]}]
@@ -359,7 +461,7 @@
   (mapv (fn [v]
           (let [c (store/custody db (:vin v))]
             [(:vin v) (or (some-> c :status name) "—") (str (:holder c))]))
-        (filter #(= :jp (:jurisdiction %)) (store/all-vehicles db))))
+        (filter #(true? (:catalog? %)) (store/all-vehicles db))))
 
 (defn- operator-view [db]
   (let [holds (hold-facts db)
@@ -369,7 +471,7 @@
     [:section {:class "view" :id "view-operator" :data-view "operator"}
      (dds/heading 2 "出品コンソール（Governor）" {:size "32"})
      [:p {:class "muted"}
-      "VehicleSale-LLM の提案は VehicleSaleGovernor を通ったものだけが台帳に残る。HARD hold は人間も覆せない。マネー操作は常に人間承認。送金はしない。"]
+      "VehicleSale-LLM の提案は VehicleSaleGovernor を通ったものだけが台帳に残る。HARD hold は人間も覆せない。マネー操作と輸出入証明は常に人間承認。送金しない。通関申告しない。"]
      (dds/heading 3 "HARD hold（この run）" {:size "24"})
      (dds/table {:headers ["操作" "対象" "規則" "詳細"]
                  :rows (hold-rows holds)
@@ -406,6 +508,7 @@ function applyHash(){
 function applyFilters(){
   var q=(document.getElementById('q').value||'').toLowerCase();
   var make=document.getElementById('make').value;
+  var country=document.getElementById('country') && document.getElementById('country').value;
   var pref=document.getElementById('prefecture').value;
   var body=document.getElementById('body').value;
   var pmax=document.getElementById('price-max').value;
@@ -414,6 +517,7 @@ function applyFilters(){
   document.querySelectorAll('#listing-grid .listing-card').forEach(function(card){
     var ok=true;
     if(make && card.getAttribute('data-make')!==make) ok=false;
+    if(country && card.getAttribute('data-country')!==country) ok=false;
     if(pref && card.getAttribute('data-prefecture')!==pref) ok=false;
     if(body && card.getAttribute('data-body')!==body) ok=false;
     if(pmax && Number(card.getAttribute('data-price'))>Number(pmax)*10000) ok=false;
@@ -440,10 +544,10 @@ document.addEventListener('DOMContentLoaded', function(){
 (defn render
   [db]
   (let [all (listings db)
-        jp (catalog/search all {})]
+        hits (catalog/search all {})]
     (page/->page
      {:title "中古車マーケット — cloud-itonami-isic-4510"
-      :description "ISIC 4510 の中古車出品検索。VehicleSaleGovernor が出品・成約・エスクロー認可・預かりを検閲する。"
+      :description "ISIC 4510 の中古車出品検索。VehicleSaleGovernor が出品・成約・エスクロー認可・預かり・国境概算を検閲する。"
       :lang "ja"
       :css (slurp (io/resource "jp_go_dds/dds.css"))
       :app-css app-css
@@ -452,12 +556,12 @@ document.addEventListener('DOMContentLoaded', function(){
       [:header
        (dds/heading 1 "中古車マーケット" {:size "45"})
        [:p {:class "muted"}
-        "cloud-itonami-isic-4510 · 出品・開示・成約決定・エスクロー認可。送金はしない。"]]
+        "cloud-itonami-isic-4510 · 出品・開示・成約決定・エスクロー認可・国境概算。送金しない。通関申告しない。"]]
       [:nav {:class "site-nav" :aria-label "ページ内"}
        (dds/button "在庫を探す" {:href "#search" :type :solid-fill})
        (dds/button "出品コンソール" {:href "#operator" :type :outline})]
-      (search-view jp)
-      (into [:div] (map #(detail-view % db) jp))
+      (search-view hits)
+      (into [:div] (map #(detail-view % db) hits))
       (operator-view db)
       [:footer
        [:p {:class "muted"}

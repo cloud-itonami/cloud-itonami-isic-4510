@@ -3,11 +3,13 @@
 Open Business Blueprint for **ISIC Rev.4 4510**: sale of motor vehicles —
 a dealership/marketplace for new and used vehicles.
 
-The **product face** is a Carsensor-like used-car search (`docs/index.html`):
-filter by maker / prefecture / body / price / mileage, open a listing,
-send a dealer inquiry. Search is a pure catalog read
-(`vehiclesale.catalog`). Writes — list, confirm, inquire — still go through
-VehicleSale-LLM ⊣ VehicleSaleGovernor.
+The **product face** is a used-car search (`docs/index.html`) across a
+closed set of demo markets (JP, US, DE, GB, AU, AE, and destination
+quotes for NZ/CA/FR/SG). Filter by maker / country / region / body /
+JPY-equivalent price / mileage, open a listing, see export/import
+procedure labels and a landed-cost *estimate*, send a dealer inquiry.
+Search is a pure catalog read (`vehiclesale.catalog`). Writes still go
+through VehicleSale-LLM ⊣ VehicleSaleGovernor.
 
 Distinct from [`cloud-itonami-isic-4774`](https://github.com/cloud-itonami/cloud-itonami-isic-4774)
 (general second-hand goods): vehicles have their own regime. US listings
@@ -29,8 +31,14 @@ AIRIS credential. A generic resale actor does not model either.
 ## Scope (deliberately narrow — read this before anything else)
 
 This actor **lists, discloses, takes inquiries, confirms sale decisions,
-records camera-scan / 車検 / 維持費概算, and authorises escrow / custody /
-x402 unlocks**. It never executes a transfer (`execute?` stays false).
+records camera-scan / inspection / JP 維持費概算, authorises escrow /
+custody / x402 unlocks, and quotes cross-border procedure + landed cost**.
+It never executes a transfer (`execute?` stays false). It never files a
+customs declaration, never classifies HS (`:adjudicated? false`), and
+never invents a missing duty row (`:landed/computable? false`). Compose
+with `cloud-itonami-marketplace-crossborder` (same refusal) and
+`cloud-itonami-marketplace-settlement`. Do not duplicate settleops or
+brokerage (`cloud-itonami-isic-5229`).
 Yen vehicle purchase is a Stripe separate-charges-and-transfers *plan*
 released only after capture + 納車. Listing info (scan / 車検抜粋 / 維持費)
 is x402 `:direct-split` via `nexus-x402`. Custody is a status on the VIN,
@@ -82,5 +90,8 @@ Open `docs/index.html` (fragment SPA: `#search` / `#v/<vin>` / `#operator`).
 - Do not list a JP vehicle whose required camera angles are missing.
 - Do not confirm a JP sale (or propose escrow release) on expired 車検.
 - Do not release escrow without capture and `:handed-over` custody.
+- Do not file a customs declaration or treat an HS candidate as adjudicated.
+- Do not invent a duty/VAT/freight when the closed market table has no row.
+- Do not treat `:zz` as a real country (denied-destination fixture only).
 
 License: AGPL-3.0-or-later.

@@ -25,6 +25,8 @@
 (deftest licensed-dmv-class-recognized
   (is (facts/licensed-dmv-class? :operator-licensed-dmv-feed))
   (is (facts/licensed-dmv-class? :operator-licensed-shakensho-feed))
+  (is (facts/licensed-dmv-class? :operator-licensed-eu-type-feed))
+  (is (facts/licensed-dmv-class? :operator-licensed-dvla-feed))
   (is (not (facts/licensed-dmv-class? :federal-title-registry))))
 
 (deftest coverage-is-honest-not-aspirational

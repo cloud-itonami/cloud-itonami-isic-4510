@@ -24,27 +24,30 @@ Dealership/marketplace 型の中古/新車販売を、`cloud-itonami-isic-6311`
 
 ## 2. VehicleSaleGovernor(独立検閲層)
 
-`src/vehiclesale/policy.cljc`。HARD 16 + SOFT（confidence / salvage /
-dispute / money-rail）。US 成約のドメイン固有 HARD は
-`lien-clearance-gate`/`odometer-disclosure-gate`。JP は
-`kobutsusho-license-gate`(出品)、`repair-history-disclosure-gate`(成約)、
-`inquiry-target-gate`(問合せ)、`scan-coverage-gate`(カメラ角)、
-`shaken-validity-gate`(車検)。マネー面は `x402-receipt-gate`、
-`escrow-conservation-gate`、`payout-destination-gate`、
-`funds-not-arrived-gate`、`custody-handover-gate`、
-`scope-exclusion-gate`。`salvage-title-gate` は `cloud-itonami-isic-6311`
-の halted-instrument gate の写像。
+`src/vehiclesale/policy.cljc`。HARD 25 + SOFT（confidence / salvage /
+dispute / money-rail / filings-adjacent）。US 成約のオドメーター開示は
+`:us` のみ（49 U.S.C. を他国に適用しない）。JP は
+`kobutsusho-license-gate`。免許が必要な非 JP 市場は
+`dealer-license-gate`。国境は `unknown-market-gate`、
+`denied-destination-gate`（`:zz` fixture）、
+`steering-incompatible-gate`、`export-certificate-gate`、
+`import-permit-gate`、`landed-uncomputable-gate`、
+`tariff-conservation-gate`、`hs-adjudication-gate`。
+`vehiclesale.border` は `cloud-itonami-marketplace-crossborder` と同じ
+禁止（申告しない / 分類しない / 裁定しない / 無い税率を捏造しない）。
 
 ## 3. R0 の正直なスコープ
 
 `src/vehiclesale/facts.cljc`: 無料公式ソースは 3 種 — NMVTIS、NHTSA
-recalls、国交省リコール・不具合情報。構造的クラスは 2 種 —
-`:operator-licensed-dmv-feed`(州 DMV)と
-`:operator-licensed-shakensho-feed`(電子車検証 / AIRIS)。デモ在庫の
-都道府県は出品行に出る 5 県だけ（47 県gazetteer ではない）。
+recalls、国交省リコール・不具合情報。構造的クラスは US DMV / JP AIRIS /
+EU type-approval / UK DVLA / AU PPSR / UAE RTA。関税率は
+`vehiclesale.border` の test-fixture（`as-of 2026-08`）。閉じた市場であり
+195 か国gazetteer ではない。シンガポールは ARF/OMV が無いので
+uncomputable。US VAT は連邦 0 + `:vat-gap :state-tax`。
 
 ## 4. Phase 0→3
 
-`default-phase=1`(保守的、初期実装時点から)。`:dispute/request` と
-マネー操作（capture / release / payout-bind / x402 unlock）はどの phase
-の `:auto` にも入らない。
+`default-phase=1`(保守的、初期実装時点から)。`:dispute/request`、
+マネー操作、`:export/certify` / `:import/permit` はどの phase の
+`:auto` にも入らない。`:border/quote` は phase 3 で governor-clean なら
+auto。
