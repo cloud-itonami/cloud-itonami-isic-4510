@@ -102,7 +102,17 @@
         :used-import :allowed
         :age-basis :unverified
         :age-note "Dealer blogs describe an 8-year excise penalty, not a sourced TBS ban. Age is not invented as HARD."
-        :psi-label "TBS PVoC Certificate of Roadworthiness"}})
+        :psi-label "TBS PVoC Certificate of Roadworthiness"}
+   :cl {:iso :cl :label "チリ" :currency :clp :steering :lhd
+        :dealer-license-required? true :inspection-required-on-sale? false
+        :inspection-name "revisión técnica" :export-doc "export certificate / logbook"
+        :homologation "MTT homologación / revisión técnica"
+        :used-import :restricted-mainland-used
+        :used-import-source "Ley 18.483 Art. 21: used passenger import into mainland Chile is prohibited. Documented exceptions: ZOFRI re-export, Aduana partida 00.33 returning resident, historic 50+ years."
+        :vintage-years 50
+        :opposite-steering :reexport-or-waiver
+        :re-export-hub? true
+        :steering-note "LHD country. JP RHD volume is ZOFRI re-export (Iquique), not mainland road use. A 5-year age cap is dealer-blog only and is not invented as HARD."}})
 
 (def jp-export-demand
   "Japan-origin used-vehicle export demand, calendar 2025. Secondary
@@ -120,9 +130,8 @@
            :note "制裁リストは operator 入力。閉じた市場に載せない。"}
           {:rank 3 :iso :tz :units 119036 :in-table? true
            :note "関税は未掲載（捏造しない）。TBS PVoC は手続ラベル。"}
-          {:rank 4 :iso :cl :units 83523 :in-table? false
-           :omit-reason :lhd-corridor-deferred
-           :note "LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。"}
+          {:rank 4 :iso :cl :units 83523 :in-table? true
+           :note "本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。"}
           {:rank 5 :iso :ke :units 77286 :in-table? true
            :note "KS 1515 の 8年（初度登録年）。QISJ CoR。関税は未掲載。"}
           {:rank 6 :iso :nz :units 71633 :in-table? true
@@ -135,21 +144,25 @@
 
 (def jpy-per-unit
   "JPY per 1 unit of listing currency. Fixture, not a live FX feed.
-  KES/TZS are omitted: East-Africa landed cost stays uncomputable."
-  {:jpy 1 :usd 150 :eur 165 :gbp 190 :aud 100 :aed 41 :nzd 90 :cad 110 :sgd 112})
+  KES/TZS are omitted: East-Africa landed cost stays uncomputable.
+  CLP is sub-1 (0.16) so `to-jpy`/`from-jpy` use double, not integer quot."
+  {:jpy 1 :usd 150 :eur 165 :gbp 190 :aud 100 :aed 41 :nzd 90 :cad 110 :sgd 112
+   :clp 0.16})
 
 (def duty-bps-by-dest
   "MFN passenger-car (HS 8703) duty in basis points. `nil` = no row.
-  KE/TZ have no row — TRA/KRA schedules are not invented."
+  KE/TZ have no row — TRA/KRA schedules are not invented.
+  CL 600 is the general 6% arancel when an exception admits the vehicle;
+  ZOFRI re-export zeroes Chilean duty in `landed-cost`, not in this table."
   {:jp 0 :us 250 :de 1000 :gb 1000 :au 500 :ae 500 :nz 0 :ca 620 :fr 1000
-   :sg nil :ke nil :tz nil})
+   :sg nil :ke nil :tz nil :cl 600})
 
 (def vat-bps-by-dest
   "GST/VAT/消費税. US federal has none; state sales tax is a documented
   gap, not zeroed silently — `:us` vat-bps 0 with `:vat-gap :state-tax`.
   `nil` = uncomputable (Singapore ARF/OMV; Kenya/Tanzania schedules)."
   {:jp 1000 :us 0 :de 1900 :gb 2000 :au 1000 :ae 500 :nz 1500 :ca 500 :fr 2000
-   :sg nil :ke nil :tz nil})
+   :sg nil :ke nil :tz nil :cl 1900})
 
 (def freight-dest-minor
   "Ocean RoRo assumption, in *destination* whole currency units.
@@ -157,7 +170,7 @@
   a quote fails on duty/VAT nil, not on a missing corridor."
   {[:jp :au] 1800 [:jp :nz] 1600 [:jp :gb] 2200 [:jp :ae] 1400
    [:jp :us] 2500 [:jp :de] 2300 [:jp :ca] 2600 [:jp :fr] 2300 [:jp :sg] 1600
-   [:jp :ke] 1800 [:jp :tz] 1900
+   [:jp :ke] 1800 [:jp :tz] 1900 [:jp :cl] 2000000
    [:de :us] 1800 [:de :jp] 240000 [:de :gb] 900 [:de :fr] 400
    [:us :ca] 800 [:us :de] 1500 [:us :jp] 280000 [:us :gb] 1600
    [:gb :jp] 250000 [:gb :de] 700 [:gb :au] 2100
@@ -177,16 +190,17 @@
   (and origin dest (not= origin dest)))
 
 (defn to-jpy
+  "CLP is sub-1 JPY/unit, so the multiply cannot go through integer quot."
   [amount currency]
   (when amount
     (let [rate (get jpy-per-unit (or currency :jpy))]
-      (when rate (long (* (long amount) rate))))))
+      (when rate (long (* (double amount) (double rate)))))))
 
 (defn from-jpy
   [jpy-amount dest-currency]
   (let [rate (get jpy-per-unit dest-currency)]
-    (when (and jpy-amount rate (pos? rate))
-      (quot (long jpy-amount) rate))))
+    (when (and jpy-amount rate (pos? (double rate)))
+      (long (/ (double jpy-amount) (double rate))))))
 
 (defn hs-candidate
   "Displacement/fuel → HS 8703 six-digit *candidate*. Never adjudicated."
@@ -224,6 +238,20 @@
         b (:steering (market dest))]
     (or (nil? a) (nil? b) (= a b))))
 
+(defn opposite-steering-policy
+  "Default `:incompatible`. Chile's JP volume is ZOFRI re-export of RHD,
+  so `:reexport-or-waiver` — not a silent LHD HARD on the actual corridor."
+  [dest]
+  (or (:opposite-steering (market dest)) :incompatible))
+
+(defn steering-ok?
+  [veh origin dest]
+  (or (not (cross-border? origin dest))
+      (compatible-steering? origin dest)
+      (true? (:steering-waiver? veh))
+      (and (= :reexport-or-waiver (opposite-steering-policy dest))
+           (true? (:zofri-reexport? veh)))))
+
 (defn first-registration-year
   "KS 1515 uses year of first registration. Demo rows that omit it fall
   back to model year — a documented approximation, not a logbook."
@@ -260,6 +288,10 @@
       (or (true? (:sevs-eligible? veh))
           (true? (:raws? veh))
           (vintage-unrestricted? veh dest))
+      :restricted-mainland-used
+      (or (true? (:zofri-reexport? veh))
+          (true? (:returning-resident? veh))
+          (vintage-unrestricted? veh dest))
       false)))
 
 (defn eligibility
@@ -286,7 +318,7 @@
      :regime (:used-import (market dest))
      :source (:used-import-source (market dest))}
     (and (cross-border? (origin-of veh) dest)
-         (not (compatible-steering? (origin-of veh) dest)))
+         (not (steering-ok? veh (origin-of veh) dest)))
     {:ok? false :reason :steering-incompatible
      :origin (origin-of veh) :dest dest}
     :else
@@ -325,6 +357,10 @@
                :required? true})
         (= :restricted-sevs-raws (:used-import d))
         (conj {:id :sevs-raws :label "中古輸入は SEVS / RAWS / 25年車に限る" :required? true})
+        (= :restricted-mainland-used (:used-import d))
+        (conj {:id :ley-18483
+               :label "本土の中古乗用車輸入は Ley 18.483 で禁止。ZOFRI再輸出 / 帰国者 00.33 / 50年歴史車が例外。"
+               :required? true})
         true
         (conj {:id :steering :label (str "ハンドル位置 " (name (or (:steering o) :n-a))
                                         " → " (name (or (:steering d) :n-a)))
@@ -343,8 +379,9 @@
         hs (hs-candidate veh)
         dest-ccy (get-in markets [dest :currency])
         origin-ccy (listing-currency veh)
-        duty-bps (get duty-bps-by-dest dest ::missing)
-        vat-bps (get vat-bps-by-dest dest ::missing)
+        zofri? (and (= dest :cl) (true? (:zofri-reexport? veh)))
+        duty-bps (if zofri? 0 (get duty-bps-by-dest dest ::missing))
+        vat-bps (if zofri? 0 (get vat-bps-by-dest dest ::missing))
         freight (if (cross-border? origin dest)
                   (get freight-dest-minor [origin dest] ::missing)
                   0)
@@ -391,7 +428,10 @@
          :landed/vat-bps vat-bps
          :landed/vat-minor vat
          :landed/vat-base :duty-inclusive
-         :landed/vat-gap (when (= dest :us) :state-tax)
+         :landed/vat-gap (cond zofri? :onward-destination-duty
+                               (= dest :us) :state-tax)
+         :landed/duty-gap (when (and (= dest :cl) (not zofri?))
+                            :luxury-displacement)
          :landed/total-minor total
          :landed/conserved? (= total (+ cif-dest duty vat))
          :landed/estimate? true

@@ -413,3 +413,23 @@
                      agent-p3)]
     (is (= :hold (get-in res [:state :disposition])))
     (is (some #{:import-regime-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest chile-ley-18483-holds-ordinary-quote
+  (let [[db actor] (fresh)
+        res (exec-op actor "cl-ley"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :cl}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:import-regime-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest chile-zofri-quote-commits-with-zero-chilean-duty
+  (let [[db actor] (fresh)
+        res (exec-op actor "cl-zofri"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :cl :zofri-reexport? true}
+                     agent-p3)
+        q (store/border-quote db "bq-JP-100-cl")]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (zero? (get-in q [:quote :landed/duty-bps])))
+    (is (= :onward-destination-duty (get-in q [:quote :landed/vat-gap])))))

@@ -80,3 +80,6 @@
     (is (not (contains? vins "JP-500")))
     (is (not (contains? vins "DE-100")))
     (is (not (contains? vins "NZ-100")))))
+
+(deftest export-dest-cl-drops-ordinary-passenger
+  (is (empty? (catalog/search (listings) {:export-dest :cl}))))
