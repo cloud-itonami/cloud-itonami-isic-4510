@@ -8,7 +8,9 @@
 
   Default marketplace slice is `:jurisdiction :jp`. US VIN demo rows remain
   visible on the operator console; they are not this catalog's inventory."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [vehiclesale.body :as body]
+            [vehiclesale.running-cost :as cost]))
 
 (def prefectures
   "Closed label table for the demo inventory. Not a complete 47-prefecture
@@ -49,7 +51,10 @@
   [veh odo title]
   (cond-> veh
     (and (nil? (:mileage veh)) (:reading odo)) (assoc :mileage (:reading odo))
-    title (assoc :lien-status (if (:active? title) :active-lien :clear))))
+    title (assoc :lien-status (if (:active? title) :active-lien :clear))
+    true (assoc :running-cost (cost/estimate veh)
+                :scan-complete? (body/scan-complete? (:scan veh))
+                :body-spec (body/describe veh))))
 
 (defn- includes-ci? [hay needle]
   (and (seq needle)
@@ -90,7 +95,8 @@
   "Stable card projection for the SPA. Keys are display-ready strings plus
   the identity `:vin` so a view can address `#v/<vin>`."
   [{:keys [vin make model grade year mileage price prefecture body-type
-           fuel inspection-expires repair-history? dealer listed-status]}]
+           fuel inspection-expires repair-history? dealer listed-status
+           running-cost scan-complete?]}]
   {:vin vin
    :title (str make " " model (when grade (str " " grade)))
    :year (str year "年")
@@ -103,4 +109,6 @@
    :repair-history (if repair-history? "修復歴あり" "修復歴なし")
    :dealer dealer
    :sold? (= :sold listed-status)
+   :annual-cost (yen (:total-yen running-cost))
+   :scan-complete? (boolean scan-complete?)
    :href (str "#v/" vin)})

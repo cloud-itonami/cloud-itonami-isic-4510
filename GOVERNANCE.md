@@ -15,7 +15,8 @@ Maintainers may merge changes that preserve these invariants:
 - a dispute/request never auto-resolves, at any rollout phase.
 - a salvage/flood/rebuilt-title sale confirmation always reaches a human.
 - every commit, hold and disclosure event is auditable.
-- no schema field exists for payment processing, escrow or funds transfer.
+- this actor never executes a transfer (`execute?` stays false);
+  escrow / x402 / custody writes are authorisation records.
 - real VIN/title/lien/buyer data stays outside Git.
 
 ## Decision Records

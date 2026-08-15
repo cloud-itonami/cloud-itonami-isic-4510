@@ -18,16 +18,22 @@ Dealership/marketplace 型の中古/新車販売を、`cloud-itonami-isic-6311`
 | 修復歴を開示せず JP 成約する | 買主が重大瑕疵を知らない |
 
 公開の検索面は `vehiclesale.catalog` の純関数。書き込みは OperationActor
-を通る。決済・エスクロー・車両カストディは境界外のまま。
+を通る。車両代金は Stripe 分離課金の *認可*（hold → 納車後に解放指示、
+`execute? false`）。情報面は x402。カストディは VIN 上の状態。送金の実行は
+`cloud-itonami-marketplace-settlement` / レール。
 
 ## 2. VehicleSaleGovernor(独立検閲層)
 
-`src/vehiclesale/policy.cljc`。HARD 8 + SOFT 3。
-`lien-clearance-gate`/`odometer-disclosure-gate` は US 成約のドメイン固有
-HARD。JP は `kobutsusho-license-gate`(出品)と
-`repair-history-disclosure-gate`(成約)と `inquiry-target-gate`(問合せ)。
-`salvage-title-gate` は `cloud-itonami-isic-6311` の halted-instrument
-gate の写像。
+`src/vehiclesale/policy.cljc`。HARD 16 + SOFT（confidence / salvage /
+dispute / money-rail）。US 成約のドメイン固有 HARD は
+`lien-clearance-gate`/`odometer-disclosure-gate`。JP は
+`kobutsusho-license-gate`(出品)、`repair-history-disclosure-gate`(成約)、
+`inquiry-target-gate`(問合せ)、`scan-coverage-gate`(カメラ角)、
+`shaken-validity-gate`(車検)。マネー面は `x402-receipt-gate`、
+`escrow-conservation-gate`、`payout-destination-gate`、
+`funds-not-arrived-gate`、`custody-handover-gate`、
+`scope-exclusion-gate`。`salvage-title-gate` は `cloud-itonami-isic-6311`
+の halted-instrument gate の写像。
 
 ## 3. R0 の正直なスコープ
 
@@ -39,5 +45,6 @@ recalls、国交省リコール・不具合情報。構造的クラスは 2 種 
 
 ## 4. Phase 0→3
 
-`default-phase=1`(保守的、初期実装時点から)。`:dispute/request` は
-どの phase の `:auto` にも入らない。
+`default-phase=1`(保守的、初期実装時点から)。`:dispute/request` と
+マネー操作（capture / release / payout-bind / x402 unlock）はどの phase
+の `:auto` にも入らない。

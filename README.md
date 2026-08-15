@@ -28,13 +28,14 @@ AIRIS credential. A generic resale actor does not model either.
 
 ## Scope (deliberately narrow — read this before anything else)
 
-This actor **lists, discloses, takes inquiries, and confirms sale
-decisions**. It never processes payment, never holds escrow, never takes
-custody of the vehicle — there is no field anywhere in this schema for
-payment processing (see `docs/adr/0001-architecture.md`). Provenance is
-limited to real, citable public sources (`src/vehiclesale/facts.cljc`:
-NMVTIS, NHTSA recalls, 国交省リコール・不具合情報) or an operator-registered
-feed (`:operator-licensed-dmv-feed` / `:operator-licensed-shakensho-feed`).
+This actor **lists, discloses, takes inquiries, confirms sale decisions,
+records camera-scan / 車検 / 維持費概算, and authorises escrow / custody /
+x402 unlocks**. It never executes a transfer (`execute?` stays false).
+Yen vehicle purchase is a Stripe separate-charges-and-transfers *plan*
+released only after capture + 納車. Listing info (scan / 車検抜粋 / 維持費)
+is x402 `:direct-split` via `nexus-x402`. Custody is a status on the VIN,
+not a lot this actor operates. Compose with
+`cloud-itonami-marketplace-settlement` — do not duplicate settleops.
 
 ## The core contract
 
@@ -70,12 +71,16 @@ Open `docs/index.html` (fragment SPA: `#search` / `#v/<vin>` / `#operator`).
 ## Non-Negotiables
 
 - Do not commit real VINs, title/lien records, or buyer/seller identity data.
-- Do not add a schema field for payment processing, escrow or funds transfer.
+- Do not set `execute?` true or call a rail from this repo. Authorisation
+  records only.
 - Do not bypass the VehicleSaleGovernor for production listings or sale
   confirmations.
 - Do not confirm a sale on a title with an unresolved, undisclosed lien.
 - Do not fabricate a source-catalog entry or a feed-credential record.
 - Do not list a JP vehicle without a 古物商許可番号.
 - Do not confirm a JP sale without an explicit 修復歴 disclosure.
+- Do not list a JP vehicle whose required camera angles are missing.
+- Do not confirm a JP sale (or propose escrow release) on expired 車検.
+- Do not release escrow without capture and `:handed-over` custody.
 
 License: AGPL-3.0-or-later.

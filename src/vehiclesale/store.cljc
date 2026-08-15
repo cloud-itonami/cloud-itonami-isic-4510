@@ -11,21 +11,21 @@
 
   Entity shapes (ADR): a vehicle listing (VIN, make/model/year, title
   status, asking price, plus JP marketplace fields: prefecture, body-type,
-  古物商許可, 修復歴, 車検), the title/lien record for that VIN, the odometer
-  reading history, a dmv-license (provenance for
-  `:operator-licensed-dmv-feed` *and* `:operator-licensed-shakensho-feed`
-  citations — same operator-credential table), a subscriber contract
-  (tenant × tier, licensed disclosure), and a buyer inquiry (lead only).
-  There is NO field anywhere in this schema for payment processing, escrow,
-  or funds transfer — this actor only lists, discloses, takes inquiries
-  and confirms a sale DECISION, it never moves money or holds custody of
-  the vehicle (ADR §1, the same class of structural exclusion as
-  `cloud-itonami-isic-6311`'s order-routing/custody exclusion).
+  古物商許可, 修復歴, 車検, body dimensions, camera-scan pack), the
+  title/lien record, odometer history, a dmv-license (US DMV *and* JP
+  AIRIS/電子車検証), a subscriber contract, a buyer inquiry, an escrow
+  *plan* (yen hold authorisation), a custody record, a payout destination,
+  and an x402 information receipt.
 
-  The ledger stays append-only on every backend."
+  This actor never executes a transfer. A committed `:escrow-upsert` is a
+  computation + authorisation record. `cloud-itonami-marketplace-settlement`
+  is the money actor; Stripe separate-charges-and-transfers and nexus-x402
+  are rails outside this process. Physical custody is a status on the VIN,
+  not a lot this actor operates."
   (:require [clojure.string :as str]
             [langchain.db :as d]
-            [langchain-store.core :as ls]))
+            [langchain-store.core :as ls]
+            [vehiclesale.body :as body]))
 
 (defprotocol Store
   (vehicle [s vin])
@@ -37,6 +37,12 @@
   (ledger [s])
   (inquiry [s id])
   (all-inquiries [s])
+  (escrow [s id])
+  (all-escrows [s])
+  (custody [s vin])
+  (payout [s seller-id])
+  (x402-receipt [s id])
+  (all-x402-receipts [s])
   (commit-record! [s record] "apply a committed op's record to the SSoT")
   (append-ledger! [s fact]   "append one immutable decision/disclosure fact")
   (with-vehicles [s vehicles] "replace/seed vehicles (map vin→vehicle)")
@@ -44,7 +50,11 @@
   (with-odometer-records [s recs] "replace/seed latest odometer readings (map vin→reading)")
   (with-dmv-licenses [s lics] "replace/seed dmv licenses (map license-id→license)")
   (with-contracts [s contracts] "replace/seed subscriber contracts (map tenant→contract)")
-  (with-inquiries [s inquiries] "replace/seed buyer inquiries (map id→inquiry)"))
+  (with-inquiries [s inquiries] "replace/seed buyer inquiries (map id→inquiry)")
+  (with-escrows [s escrows])
+  (with-custody [s recs])
+  (with-payouts [s recs])
+  (with-x402-receipts [s recs]))
 
 ;; ───────────────────────── demo data (fictitious, non-real VINs) ─────
 
@@ -78,7 +88,11 @@
               :inspection-expires "2027-04" :repair-history? false
               :dealer "デモモータース東京"
               :kobutsusho-license "東京都公安委員会 第301019900001号"
-              :title-status :clean :listed-status :listed}
+              :title-status :clean :listed-status :listed
+              :weight-kg 1350 :fuel-economy-km-l 28.0
+              :doors 5 :seats 5 :drive :ff
+              :length-mm 4540 :width-mm 1760 :height-mm 1470
+              :scan (body/demo-scan "JP-100")}
     "JP-200" {:vin "JP-200" :jurisdiction :jp :make "ホンダ" :model "フィット"
               :grade "HOME" :year 2019 :mileage 51000 :price 980000M
               :prefecture :osaka :body-type :hatch :fuel :gasoline
@@ -86,7 +100,11 @@
               :inspection-expires "2026-11" :repair-history? false
               :dealer "デモオート大阪"
               :kobutsusho-license "大阪府公安委員会 第621019900002号"
-              :title-status :clean :listed-status :listed}
+              :title-status :clean :listed-status :listed
+              :weight-kg 1080 :fuel-economy-km-l 21.0
+              :doors 5 :seats 5 :drive :ff
+              :length-mm 3990 :width-mm 1695 :height-mm 1520
+              :scan (body/demo-scan "JP-200")}
     "JP-300" {:vin "JP-300" :jurisdiction :jp :make "日産" :model "セレナ"
               :grade "XV" :year 2018 :mileage 78000 :price 1280000M
               :prefecture :fukuoka :body-type :minivan :fuel :gasoline
@@ -94,7 +112,11 @@
               :inspection-expires "2025-12" :repair-history? true
               :dealer "デモカー福岡"
               :kobutsusho-license "福岡県公安委員会 第401019900003号"
-              :title-status :clean :listed-status :listed}
+              :title-status :clean :listed-status :listed
+              :weight-kg 1680 :fuel-economy-km-l 13.5
+              :doors 5 :seats 8 :drive :ff
+              :length-mm 4770 :width-mm 1740 :height-mm 1865
+              :scan (body/demo-scan "JP-300")}
     "JP-400" {:vin "JP-400" :jurisdiction :jp :make "マツダ" :model "CX-5"
               :grade "XD" :year 2022 :mileage 18000 :price 2680000M
               :prefecture :aichi :body-type :suv :fuel :diesel
@@ -102,7 +124,11 @@
               :inspection-expires "2028-01" :repair-history? false
               :dealer "デモモータース名古屋"
               :kobutsusho-license "愛知県公安委員会 第231019900004号"
-              :title-status :clean :listed-status :listed}
+              :title-status :clean :listed-status :listed
+              :weight-kg 1620 :fuel-economy-km-l 18.0
+              :doors 5 :seats 5 :drive :4wd
+              :length-mm 4575 :width-mm 1845 :height-mm 1680
+              :scan (body/demo-scan "JP-400")}
     "JP-500" {:vin "JP-500" :jurisdiction :jp :make "スバル" :model "インプレッサ"
               :grade "1.6i" :year 2016 :mileage 120000 :price 450000M
               :prefecture :hokkaido :body-type :sedan :fuel :gasoline
@@ -110,7 +136,13 @@
               :inspection-expires "2026-08" :repair-history? true
               :dealer "デモ自動車札幌"
               :kobutsusho-license "北海道公安委員会 第101019900005号"
-              :title-status :clean :listed-status :listed}}
+              :title-status :clean :listed-status :listed
+              :weight-kg 1280 :fuel-economy-km-l 16.0
+              :doors 4 :seats 5 :drive :4wd
+              :length-mm 4580 :width-mm 1740 :height-mm 1465
+              :scan {:angles {:front "bafkdemo-JP-500-front"}
+                     :captured-at "2026-04-02" :operator-id "da-1"
+                     :fictitious? true}}}
    :title-records
    {"vin-100" {:vin "vin-100" :lien-holder nil :active? false}
     "vin-200" {:vin "vin-200" :lien-holder "Demo Credit Union (fictitious)" :active? true}
@@ -153,6 +185,25 @@
    :contracts
    {"tenant-acme"  {:tenant "tenant-acme" :tier :tier/dealer :active? true :purpose :dealer-inventory}
     "tenant-basic" {:tenant "tenant-basic" :tier :tier/basic :active? true :purpose :retail-buyer}}
+   :payouts
+   {"デモモータース東京" {:seller-id "デモモータース東京" :verified? true
+                     :rail :stripe-separate :account "acct_demo_tokyo"}
+    "デモオート大阪" {:seller-id "デモオート大阪" :verified? true
+                   :rail :stripe-separate :account "acct_demo_osaka"}
+    "デモカー福岡" {:seller-id "デモカー福岡" :verified? true
+                  :rail :stripe-separate :account "acct_demo_fukuoka"}
+    "デモモータース名古屋" {:seller-id "デモモータース名古屋" :verified? true
+                      :rail :stripe-separate :account "acct_demo_aichi"}
+    "デモ自動車札幌" {:seller-id "デモ自動車札幌" :verified? false
+                   :rail :stripe-separate :account "acct_demo_hokkaido"}}
+   :custody
+   {"JP-100" {:vin "JP-100" :status :at-dealer :holder "デモモータース東京"}
+    "JP-200" {:vin "JP-200" :status :at-dealer :holder "デモオート大阪"}
+    "JP-300" {:vin "JP-300" :status :at-dealer :holder "デモカー福岡"}
+    "JP-400" {:vin "JP-400" :status :at-dealer :holder "デモモータース名古屋"}
+    "JP-500" {:vin "JP-500" :status :at-dealer :holder "デモ自動車札幌"}}
+   :escrows {}
+   :x402-receipts {}
    :inquiries {}})
 
 ;; ───────────────────────── MemStore (default) ─────────────────────────
@@ -168,6 +219,12 @@
   (ledger [_] (:ledger @a))
   (inquiry [_ id] (get-in @a [:inquiries id]))
   (all-inquiries [_] (sort-by :inquiry-id (vals (:inquiries @a))))
+  (escrow [_ id] (get-in @a [:escrows id]))
+  (all-escrows [_] (sort-by :escrow-id (vals (:escrows @a))))
+  (custody [_ vin] (get-in @a [:custody vin]))
+  (payout [_ seller-id] (get-in @a [:payouts seller-id]))
+  (x402-receipt [_ id] (get-in @a [:x402-receipts id]))
+  (all-x402-receipts [_] (sort-by :receipt-id (vals (:x402-receipts @a))))
   (commit-record! [s {:keys [effect path value]}]
     (case effect
       :listing-upsert   (do (swap! a assoc-in [:vehicles (:vin value)] value)
@@ -183,6 +240,12 @@
           (swap! a update-in [:vehicles (:vin value)]
                  merge {:listed-status :sold}))
       :inquiry-upsert    (swap! a assoc-in [:inquiries (:inquiry-id value)] value)
+      :escrow-upsert     (swap! a assoc-in [:escrows (:escrow-id value)] value)
+      :custody-upsert    (swap! a assoc-in [:custody (:vin value)] value)
+      :payout-upsert     (swap! a assoc-in [:payouts (:seller-id value)] value)
+      :x402-receipt-upsert (swap! a assoc-in [:x402-receipts (:receipt-id value)] value)
+      :scan-upsert       (swap! a update-in [:vehicles (:vin value)]
+                                merge (select-keys value [:scan :vin]))
       :correction-apply  (swap! a update-in [:vehicles (first path)] merge (:patch value))
       nil)
     s)
@@ -192,12 +255,18 @@
   (with-odometer-records [s recs] (when (seq recs) (swap! a assoc :odometer-records recs)) s)
   (with-dmv-licenses [s lics]  (when (seq lics) (swap! a assoc :dmv-licenses lics)) s)
   (with-contracts [s cts]      (when (seq cts) (swap! a assoc :contracts cts)) s)
-  (with-inquiries [s inqs]     (when (seq inqs) (swap! a assoc :inquiries inqs)) s))
+  (with-inquiries [s inqs]     (when (seq inqs) (swap! a assoc :inquiries inqs)) s)
+  (with-escrows [s xs]         (when (seq xs) (swap! a assoc :escrows xs)) s)
+  (with-custody [s xs]         (when (seq xs) (swap! a assoc :custody xs)) s)
+  (with-payouts [s xs]         (when (seq xs) (swap! a assoc :payouts xs)) s)
+  (with-x402-receipts [s xs]   (when (seq xs) (swap! a assoc :x402-receipts xs)) s))
 
 (defn seed-db
   "A MemStore seeded with the demo data. The deterministic default."
   []
-  (->MemStore (atom (assoc (demo-data) :ledger [] :inquiries {}))))
+  (->MemStore (atom (merge (demo-data)
+                           {:ledger [] :inquiries {} :escrows {}
+                            :x402-receipts {}}))))
 
 ;; ───────────────────────── DatomicStore (langchain.db) ─────────────────
 
@@ -211,6 +280,10 @@
    :dmv-license/id     {:db/unique :db.unique/identity}
    :contract/tenant    {:db/unique :db.unique/identity}
    :inquiry/id         {:db/unique :db.unique/identity}
+   :escrow/id          {:db/unique :db.unique/identity}
+   :custody/vin        {:db/unique :db.unique/identity}
+   :payout/id          {:db/unique :db.unique/identity}
+   :x402/id            {:db/unique :db.unique/identity}
    :ledger/seq         {:db/unique :db.unique/identity}})
 
 (defn- enc [v] (ls/enc v))
@@ -219,7 +292,8 @@
 (def ^:private listing-keys
   [:jurisdiction :prefecture :mileage :body-type :kobutsusho-license
    :repair-history? :inspection-expires :dealer :grade :fuel
-   :displacement-cc :color :listed-status])
+   :displacement-cc :color :listed-status :weight-kg :fuel-economy-km-l
+   :doors :seats :drive :length-mm :width-mm :height-mm :scan])
 
 (defn- vehicle->tx [{:keys [vin make model year title-status price] :as v}]
   (cond-> {:vehicle/vin vin :vehicle/listing (enc (select-keys v listing-keys))}
@@ -293,6 +367,12 @@
 
 (def ^:private inquiry-pull [:inquiry/id :inquiry/blob])
 
+(defn- blob-tx [id-k blob-k id v]
+  {id-k id blob-k (enc v)})
+
+(defn- pull->blob [id-k blob-k m]
+  (when (get m id-k) (dec* (get m blob-k))))
+
 (defrecord DatomicStore [conn]
   Store
   (vehicle [_ vin] (pull->vehicle (d/pull (d/db conn) vehicle-pull [:vehicle/vin vin])))
@@ -314,6 +394,26 @@
     (->> (d/q '[:find [?i ...] :where [?e :inquiry/id ?i]] (d/db conn))
          (map #(pull->inquiry (d/pull (d/db conn) inquiry-pull [:inquiry/id %])))
          (sort-by :inquiry-id)))
+  (escrow [_ id] (pull->blob :escrow/id :escrow/blob
+                             (d/pull (d/db conn) [:escrow/id :escrow/blob] [:escrow/id id])))
+  (all-escrows [_]
+    (->> (d/q '[:find [?i ...] :where [?e :escrow/id ?i]] (d/db conn))
+         (map #(pull->blob :escrow/id :escrow/blob
+                           (d/pull (d/db conn) [:escrow/id :escrow/blob] [:escrow/id %])))
+         (sort-by :escrow-id)))
+  (custody [_ vin] (pull->blob :custody/vin :custody/blob
+                               (d/pull (d/db conn) [:custody/vin :custody/blob] [:custody/vin vin])))
+  (payout [_ seller-id]
+    (pull->blob :payout/id :payout/blob
+                (d/pull (d/db conn) [:payout/id :payout/blob] [:payout/id seller-id])))
+  (x402-receipt [_ id]
+    (pull->blob :x402/id :x402/blob
+                (d/pull (d/db conn) [:x402/id :x402/blob] [:x402/id id])))
+  (all-x402-receipts [_]
+    (->> (d/q '[:find [?i ...] :where [?e :x402/id ?i]] (d/db conn))
+         (map #(pull->blob :x402/id :x402/blob
+                           (d/pull (d/db conn) [:x402/id :x402/blob] [:x402/id %])))
+         (sort-by :receipt-id)))
   (commit-record! [s {:keys [effect path value]}]
     (case effect
       :listing-upsert   (do (d/transact! conn [(vehicle->tx value)])
@@ -329,6 +429,13 @@
           (d/transact! conn [(vehicle->tx (merge (vehicle s (:vin value))
                                                  {:listed-status :sold}))]))
       :inquiry-upsert    (d/transact! conn [(inquiry->tx value)])
+      :escrow-upsert     (d/transact! conn [(blob-tx :escrow/id :escrow/blob (:escrow-id value) value)])
+      :custody-upsert    (d/transact! conn [(blob-tx :custody/vin :custody/blob (:vin value) value)])
+      :payout-upsert     (d/transact! conn [(blob-tx :payout/id :payout/blob (:seller-id value) value)])
+      :x402-receipt-upsert (d/transact! conn [(blob-tx :x402/id :x402/blob (:receipt-id value) value)])
+      :scan-upsert
+      (d/transact! conn [(vehicle->tx (merge (vehicle s (:vin value))
+                                             (select-keys value [:scan :vin])))])
       :correction-apply
       (d/transact! conn [(vehicle->tx (merge (vehicle s (first path)) (:patch value)))])
       nil)
@@ -347,15 +454,30 @@
   (with-contracts [s cts]
     (when (seq cts) (d/transact! conn (mapv contract->tx (vals cts)))) s)
   (with-inquiries [s inqs]
-    (when (seq inqs) (d/transact! conn (mapv inquiry->tx (vals inqs)))) s))
+    (when (seq inqs) (d/transact! conn (mapv inquiry->tx (vals inqs)))) s)
+  (with-escrows [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :escrow/id :escrow/blob (:escrow-id %) %)
+                                           (vals xs)))) s)
+  (with-custody [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :custody/vin :custody/blob (:vin %) %)
+                                           (vals xs)))) s)
+  (with-payouts [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :payout/id :payout/blob (:seller-id %) %)
+                                           (vals xs)))) s)
+  (with-x402-receipts [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :x402/id :x402/blob (:receipt-id %) %)
+                                           (vals xs)))) s))
 
 (defn datomic-store
   ([] (datomic-store {}))
-  ([{:keys [vehicles title-records odometer-records dmv-licenses contracts inquiries]}]
+  ([{:keys [vehicles title-records odometer-records dmv-licenses contracts
+            inquiries escrows custody payouts x402-receipts]}]
    (let [s (->DatomicStore (d/create-conn schema))]
      (-> s (with-vehicles vehicles) (with-title-records title-records)
          (with-odometer-records odometer-records) (with-dmv-licenses dmv-licenses)
-         (with-contracts contracts) (with-inquiries inquiries)))))
+         (with-contracts contracts) (with-inquiries inquiries)
+         (with-escrows escrows) (with-custody custody)
+         (with-payouts payouts) (with-x402-receipts x402-receipts)))))
 
 (defn datomic-seed-db []
   (datomic-store (demo-data)))

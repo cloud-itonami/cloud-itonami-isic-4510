@@ -5,42 +5,35 @@
   law, or a subscriber's disclosure entitlement, so this MUST be a separate
   system able to *reject* a proposal and fall back to HOLD.
 
-  Eight checks, in priority order. The first five are HARD violations: a
-  human approver CANNOT override them. The last three are SOFT/always-
-  escalate: they route to a human, who may approve.
+  Sixteen HARD checks, in priority order. A human approver CANNOT override
+  them. SOFT / always-escalate: confidence floor, salvage-title, dispute,
+  and money-adjacent ops (`:escrow/capture`, `:escrow/propose-release`,
+  `:payout/bind`, `:x402/unlock`).
 
-    1. rbac                    — does actor-role have permission for op?
-  2. lien-clearance-gate      — a `:sale/confirm` on a title with an active
-                                  lien, without an explicit payoff/release
-                                  confirmation, is rejected.
-  3. odometer-disclosure-gate — a reading that rolls back below the last
-                                  recorded value, or a `:sale/confirm` on a
-                                  non-exempt-age vehicle with no disclosure
-                                  statement, is rejected (49 U.S.C. Chapter
-                                  327 / 49 CFR Part 580). JP listings are
-                                  not under that statute; they use
-                                  repair-history-disclosure-gate instead.
-  4. source-provenance-gate   — does the listing/odometer report cite an
-                                  allowed provenance class, and — for an
-                                  operator-licensed feed — an ACTIVE
-                                  credential scoped to the vehicle's
-                                  state/prefecture?
-  5. licensed-disclosure      — is there an active subscriber contract,
-                                  and does the requested column set stay
-                                  within its tier?
-  6. kobutsusho-license-gate  — a JP `:vehicle/list` without a 古物商許可
-                                  number is rejected (古物営業法).
-  7. repair-history-disclosure-gate — a JP `:sale/confirm` without an
-                                  explicit 修復歴 disclosure is rejected.
-  8. inquiry-target-gate      — an `:inquiry/submit` against a VIN that is
-                                  not in the SSoT is rejected.
+    1. rbac
+    2. lien-clearance-gate
+    3. odometer-disclosure-gate
+    4. source-provenance-gate
+    5. licensed-disclosure
+    6. kobutsusho-license-gate
+    7. repair-history-disclosure-gate
+    8. inquiry-target-gate
+    9. scan-coverage-gate
+   10. shaken-validity-gate
+   11. x402-receipt-gate
+   12. escrow-conservation-gate
+   13. payout-destination-gate
+   14. funds-not-arrived-gate
+   15. custody-handover-gate
+   16. scope-exclusion-gate"
 
-  Confidence floor, salvage-title-gate and dispute-request remain SOFT /
-  always-escalate."
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [vehiclesale.body :as body]
+            [vehiclesale.commerce :as commerce]
             [vehiclesale.facts :as facts]
-            [vehiclesale.store :as store]))
+            [vehiclesale.store :as store]
+            [vehiclesale.x402 :as x402]))
 
 ;; ───────────────────────── policy tables ─────────────────────────
 
@@ -49,22 +42,38 @@
   these is incomplete — `render-html/-main` refuses to write in that case."
   #{:rbac :lien-clearance-gate :odometer-disclosure-gate :source-provenance-gate
     :licensed-disclosure :kobutsusho-license-gate
-    :repair-history-disclosure-gate :inquiry-target-gate})
+    :repair-history-disclosure-gate :inquiry-target-gate
+    :scan-coverage-gate :shaken-validity-gate :x402-receipt-gate
+    :escrow-conservation-gate :payout-destination-gate
+    :funds-not-arrived-gate :custody-handover-gate :scope-exclusion-gate})
+
+(def always-escalate-ops
+  "Money-adjacent writes. Independently kept out of every phase `:auto` set."
+  #{:escrow/capture :escrow/propose-release :payout/bind :x402/unlock})
+
+(def allowed-effects
+  #{:listing-upsert :vehicle-sale-confirm :disclosure-serve :inquiry-upsert
+    :correction-apply :escrow-upsert :custody-upsert :payout-upsert
+    :x402-receipt-upsert :scan-upsert :noop})
 
 (def confidence-floor 0.6)
 
 (def permissions
   "actor-role → set of operations it may perform."
-  {:dealer-agent   #{:vehicle/list :sale/confirm}
-   :title-officer  #{:vehicle/list :sale/confirm :dispute/request}
-   :buyer          #{:disclosure/query :inquiry/submit}})
+  {:dealer-agent   #{:vehicle/list :sale/confirm :scan/record
+                     :escrow/open :custody/transfer :custody/handover}
+   :title-officer  #{:vehicle/list :sale/confirm :dispute/request :scan/record
+                     :escrow/open :escrow/capture :escrow/propose-release
+                     :payout/bind :custody/transfer :custody/handover}
+   :buyer          #{:disclosure/query :inquiry/submit :x402/unlock}})
 
 (def tier-columns
   "For `:disclosure/query` — the columns each licensed subscriber tier may
   see."
   (let [base #{:vin :make :model :year :title-status :price
                :prefecture :mileage :body-type :repair-history?}
-        dealer-extra #{:odometer :lien-status :kobutsusho-license}]
+        dealer-extra #{:odometer :lien-status :kobutsusho-license
+                       :scan :inspection-expires :running-cost}]
     {:tier/basic  base
      :tier/dealer (into base dealer-extra)}))
 
@@ -184,6 +193,94 @@
         [{:rule :inquiry-target-gate
           :detail (str "出品が存在しない車両への問い合わせ: vin=" vin)}]))))
 
+(defn- scan-of [proposal st]
+  (or (get-in proposal [:value :scan])
+      (when-let [vin (get-in proposal [:value :vin])]
+        (:scan (store/vehicle st vin)))))
+
+(defn- scan-coverage-violations
+  "JP list / scan/record must carry the required camera angles."
+  [{:keys [op]} proposal st]
+  (when (and (contains? #{:vehicle/list :scan/record} op)
+             (jp-subject? proposal st))
+    (let [missing (body/missing-angles (scan-of proposal st))]
+      (when (seq missing)
+        [{:rule :scan-coverage-gate
+          :detail (str "必須カメラ角が足りない: vin=" (get-in proposal [:value :vin])
+                       " missing=" (vec missing))}]))))
+
+(defn- shaken-validity-violations
+  [{:keys [op]} proposal st]
+  (when (and (contains? #{:sale/confirm :escrow/propose-release} op)
+             (jp-subject? proposal st))
+    (let [vin (get-in proposal [:value :vin])
+          expires (or (get-in proposal [:value :inspection-expires])
+                      (:inspection-expires (store/vehicle st vin)))]
+      (when (commerce/shaken-expired? expires)
+        [{:rule :shaken-validity-gate
+          :detail (str "車検が切れている: vin=" vin " expires=" expires)}]))))
+
+(defn- x402-receipt-violations
+  [{:keys [op]} proposal]
+  (when (= op :x402/unlock)
+    (let [errs (x402/receipt-errors (:value proposal))]
+      (when (seq errs)
+        [{:rule :x402-receipt-gate
+          :detail (str "x402 レシートが導出できない: " (pr-str errs))}]))))
+
+(defn- escrow-conservation-violations
+  [{:keys [op]} proposal]
+  (when (= op :escrow/open)
+    (let [p (or (get-in proposal [:value :plan])
+                (when-let [g (get-in proposal [:value :gross-yen])]
+                  (commerce/plan g)))]
+      (when-not (commerce/conserved? p)
+        [{:rule :escrow-conservation-gate
+          :detail (str "精算プランが保存則を満たさない: " (pr-str p))}]))))
+
+(defn- payout-destination-violations
+  [{:keys [op]} proposal st]
+  (when (contains? #{:escrow/open :payout/bind} op)
+    (let [seller (or (get-in proposal [:value :seller-id])
+                     (get-in proposal [:value :dealer]))
+          dest (store/payout st seller)
+          errs (if (= op :payout/bind)
+                 (commerce/payout-errors (get-in proposal [:value :destination] dest))
+                 (commerce/payout-errors dest))]
+      (when (seq errs)
+        [{:rule :payout-destination-gate
+          :detail (str "払出先が未検証: seller=" seller " errs=" (pr-str errs))}]))))
+
+(defn- funds-not-arrived-violations
+  [{:keys [op]} proposal st]
+  (when (= op :escrow/propose-release)
+    (let [id (get-in proposal [:value :escrow-id])
+          esc (store/escrow st id)]
+      (when (or (nil? esc) (nil? (:capture esc)))
+        [{:rule :funds-not-arrived-gate
+          :detail (str "キャプチャが無いエスクローを解放しようとした: escrow-id=" id)}]))))
+
+(defn- custody-handover-violations
+  [{:keys [op]} proposal st]
+  (when (= op :escrow/propose-release)
+    (let [vin (get-in proposal [:value :vin])
+          rec (store/custody st vin)]
+      (when-not (= :handed-over (:status rec))
+        [{:rule :custody-handover-gate
+          :detail (str "未納車のままエスクロー解放: vin=" vin
+                       " custody=" (:status rec))}]))))
+
+(defn- scope-exclusion-violations
+  [{:keys [op already-transferred?]} proposal]
+  (let [effect (:effect proposal)
+        claim? (or already-transferred?
+                   (get-in proposal [:value :already-transferred?])
+                   (and effect (not (contains? allowed-effects effect))))]
+    (when claim?
+      [{:rule :scope-exclusion-gate
+        :detail (str "送金・払出を実行したと主張する提案: op=" op
+                     " effect=" effect)}])))
+
 (defn- salvage-title? [st vin]
   (when vin
     (let [veh (store/vehicle st vin)]
@@ -202,20 +299,30 @@
                               (licensed-disclosure-violations request context proposal st)
                               (kobutsusho-license-violations request proposal st)
                               (repair-history-disclosure-violations request proposal st)
-                              (inquiry-target-violations request proposal st)))
+                              (inquiry-target-violations request proposal st)
+                              (scan-coverage-violations request proposal st)
+                              (shaken-validity-violations request proposal st)
+                              (x402-receipt-violations request proposal)
+                              (escrow-conservation-violations request proposal)
+                              (payout-destination-violations request proposal st)
+                              (funds-not-arrived-violations request proposal st)
+                              (custody-handover-violations request proposal st)
+                              (scope-exclusion-violations request proposal)))
         conf     (:confidence proposal 0.0)
         low?     (< conf confidence-floor)
         vin      (or (get-in proposal [:value :vin]) (:subject request))
         salvage? (and (= (:op request) :sale/confirm) (salvage-title? st vin))
         dispute? (= :dispute/request (:op request))
+        money?   (contains? always-escalate-ops (:op request))
         hard?    (boolean (seq hard))]
-    {:ok?          (and (not hard?) (not low?) (not salvage?) (not dispute?))
+    {:ok?          (and (not hard?) (not low?) (not salvage?) (not dispute?) (not money?))
      :violations   hard
      :confidence   conf
      :hard?        hard?
-     :escalate?    (and (not hard?) (or low? salvage? dispute?))
+     :escalate?    (and (not hard?) (or low? salvage? dispute? money?))
      :salvage?     salvage?
-     :dispute?     dispute?}))
+     :dispute?     dispute?
+     :money?       money?}))
 
 (defn hold-fact
   [request context verdict]

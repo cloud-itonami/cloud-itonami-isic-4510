@@ -79,6 +79,7 @@
                         :reason (or reason
                                     (cond (:dispute? verdict) :buyer-seller-dispute
                                           (:salvage? verdict) :salvage-title
+                                          (:money? verdict) :money-rail
                                           :else :low-confidence))
                         :phase ph
                         :confidence (:confidence verdict)}]}

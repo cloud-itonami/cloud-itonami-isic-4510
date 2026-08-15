@@ -20,13 +20,16 @@
                :cljs [cljs.reader :as edn])
             [clojure.string :as str]
             [langchain.model :as model]
-            [vehiclesale.store :as store]))
+            [vehiclesale.commerce :as commerce]
+            [vehiclesale.store :as store]
+            [vehiclesale.x402 :as x402]))
 
 (def ^:private listing-pass-through
   [:vin :make :model :year :title-status :price :odometer :state
    :jurisdiction :prefecture :mileage :body-type :kobutsusho-license
    :repair-history? :inspection-expires :dealer :grade :fuel
-   :displacement-cc :color :listed-status])
+   :displacement-cc :color :listed-status :scan :weight-kg :fuel-economy-km-l
+   :doors :seats :drive :length-mm :width-mm :height-mm])
 
 (defn- propose-list
   "Listing normalization — the LLM only normalizes/validates the caller-
@@ -105,6 +108,96 @@
    :value     {:patch {disputed-field claim}}
    :confidence 0.5})
 
+(defn- propose-scan
+  [_db {:keys [vin scan]}]
+  {:summary   (str "scan record: " vin)
+   :rationale "カメラ角の正規化のみ。カバレッジ判定は governor。"
+   :cites     [:vin :scan]
+   :source    nil
+   :effect    :scan-upsert
+   :value     {:vin vin :scan scan}
+   :confidence 0.9})
+
+(defn- propose-escrow-open
+  [db {:keys [vin buyer-id seller-id gross-yen plan]}]
+  (let [veh (store/vehicle db vin)
+        seller (or seller-id (:dealer veh))
+        gross (or gross-yen (:price veh))
+        p (or plan (commerce/plan gross))]
+    {:summary   (str "escrow open: " vin)
+     :rationale "1 seller の精算プラン。送金はしない。"
+     :cites     [:vin]
+     :source    nil
+     :effect    :escrow-upsert
+     :value     {:escrow-id (str "esc-" vin)
+                 :vin vin :buyer-id buyer-id :seller-id seller
+                 :dealer seller :gross-yen (long gross)
+                 :plan p :status :open :capture nil}
+     :confidence 0.9}))
+
+(defn- propose-escrow-capture
+  [db {:keys [escrow-id vin psp-ref amount-yen]}]
+  (let [prev (when escrow-id (store/escrow db escrow-id))]
+    {:summary   (str "escrow capture: " escrow-id)
+     :rationale "PSP 証跡の記録。解放の資金ゲートがこれを読む。"
+     :cites     [:escrow-id]
+     :source    nil
+     :effect    :escrow-upsert
+     :value     (merge prev {:escrow-id escrow-id :vin (or vin (:vin prev))
+                             :capture {:psp :stripe-demo :ref psp-ref :amount-yen amount-yen}
+                             :status :held})
+     :confidence 0.85}))
+
+(defn- propose-escrow-release
+  [db {:keys [escrow-id vin already-transferred?]}]
+  (let [prev (when escrow-id (store/escrow db escrow-id))]
+    {:summary   (str "escrow release propose: " escrow-id)
+     :rationale "解放の認可。レール実行は settlement actor。"
+     :cites     [:escrow-id]
+     :source    nil
+     :effect    (if already-transferred? :stripe-transfer :escrow-upsert)
+     :value     (merge prev {:escrow-id escrow-id
+                             :vin (or vin (:vin prev))
+                             :status :released
+                             :already-transferred? (boolean already-transferred?)})
+     :confidence 0.8}))
+
+(defn- propose-custody
+  [_db {:keys [vin status holder]}]
+  {:summary   (str "custody: " vin " → " status)
+   :rationale "所在の正規化。物理ロットは運用しない。"
+   :cites     [:vin]
+   :source    nil
+   :effect    :custody-upsert
+   :value     {:vin vin :status status :holder holder}
+   :confidence 0.9})
+
+(defn- propose-payout-bind
+  [_db {:keys [seller-id destination]}]
+  {:summary   (str "payout bind: " seller-id)
+   :rationale "払出先の提案。検証は governor。"
+   :cites     [:seller-id]
+   :source    nil
+   :effect    :payout-upsert
+   :value     {:seller-id seller-id :destination destination
+               :verified? (:verified? destination)
+               :account (:account destination)
+               :rail (or (:rail destination) :stripe-separate)}
+   :confidence 0.7})
+
+(defn- propose-x402
+  [_db {:keys [vin resource payer tx receipt-id already-settled?]}]
+  (let [id (or receipt-id (str "x402-" vin "-" (name (or resource :scan-pack))))]
+    {:summary   (str "x402 unlock: " id)
+     :rationale "情報面のレシート。車両代金ではない。"
+     :cites     [:vin :resource]
+     :source    nil
+     :effect    :x402-receipt-upsert
+     :value     {:receipt-id id :vin vin :resource resource :payer payer
+                 :tx tx :already-settled? (boolean already-settled?)
+                 :challenge (x402/challenge resource vin)}
+     :confidence 0.85}))
+
 (defn infer
   [db {:keys [op] :as request}]
   (case op
@@ -112,7 +205,15 @@
     :sale/confirm          (propose-confirm db request)
     :disclosure/query      (propose-disclosure db request)
     :inquiry/submit        (propose-inquiry db request)
-    :dispute/request       (propose-dispute db request)
+    :dispute/request          (propose-dispute db request)
+    :scan/record              (propose-scan db request)
+    :escrow/open              (propose-escrow-open db request)
+    :escrow/capture           (propose-escrow-capture db request)
+    :escrow/propose-release   (propose-escrow-release db request)
+    :custody/transfer         (propose-custody db request)
+    :custody/handover         (propose-custody db (assoc request :status :handed-over))
+    :payout/bind              (propose-payout-bind db request)
+    :x402/unlock              (propose-x402 db request)
     {:summary "未対応の操作" :rationale (str op) :cites [] :source nil
      :effect :noop :confidence 0.0}))
 
@@ -130,9 +231,12 @@
        "書かず、EDN だけを出力します。\n"
        "キー: :summary :rationale :cites :source(nilも可) "
        ":effect(:listing-upsert|:vehicle-sale-confirm|:disclosure-serve|"
-       ":inquiry-upsert|:correction-apply) :value :confidence(0..1)。\n"
+       ":inquiry-upsert|:correction-apply|:escrow-upsert|:custody-upsert|"
+       ":payout-upsert|:x402-receipt-upsert|:scan-upsert) "
+       ":value :confidence(0..1)。\n"
        "重要: 出典を伴わない出品や、走行距離のロールバックは絶対に提案しては"
-       "いけません。リーエン解消の真偽判定や走行距離開示証明の要否判定は"
+       "いけません。送金の実行(:stripe-transfer 等)を提案してはいけません。"
+       "リーエン解消・車検・スキャンカバレッジ・精算保存則の判定は"
        "あなたの責務ではありません(governor が判定します)。"))
 
 (defn- facts-for [st {:keys [op subject vin]}]

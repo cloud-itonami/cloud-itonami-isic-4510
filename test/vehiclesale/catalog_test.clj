@@ -44,4 +44,14 @@
     (is (= "#v/JP-100" (:href c)))
     (is (= "¥1,850,000" (:price c)))
     (is (= "東京都" (:prefecture c)))
-    (is (= "修復歴なし" (:repair-history c)))))
+    (is (= "修復歴なし" (:repair-history c)))
+    (is (string? (:annual-cost c)))
+    (is (true? (:scan-complete? c)))))
+
+(deftest hydrate-joins-running-cost-and-scan
+  (let [all (listings)
+        prius (first (filter #(= "JP-100" (:vin %)) all))
+        impreza (first (filter #(= "JP-500" (:vin %)) all))]
+    (is (true? (:scan-complete? prius)))
+    (is (false? (:scan-complete? impreza)))
+    (is (pos? (get-in prius [:running-cost :total-yen])))))

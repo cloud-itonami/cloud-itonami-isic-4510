@@ -32,7 +32,8 @@ Dealership/marketplace sales platform for new and used motor vehicles.
 ## Non-Negotiables
 
 - Do not commit real VINs/title/lien/buyer data.
-- Do not add a payment/escrow/custody field.
+- Do not set `execute?` true. Escrow / x402 / custody records are
+  authorisations, not rail execution.
 - Do not bypass VehicleSaleGovernor.
 - Do not confirm a sale with an unresolved undisclosed lien.
 - Do not fabricate a source-catalog entry or dmv-license.
