@@ -5,7 +5,7 @@
   law, or a subscriber's disclosure entitlement, so this MUST be a separate
   system able to *reject* a proposal and fall back to HOLD.
 
-  Sixteen HARD checks, in priority order. A human approver CANNOT override
+  HARD checks, in priority order. A human approver CANNOT override
   them. SOFT / always-escalate: confidence floor, salvage-title, dispute,
   and money-adjacent ops (`:escrow/capture`, `:escrow/propose-release`,
   `:payout/bind`, `:x402/unlock`). Export/import certs always escalate
@@ -35,7 +35,9 @@
    22. landed-uncomputable-gate
    23. tariff-conservation-gate
    24. hs-adjudication-gate
-   25. scope-exclusion-gate"
+   25. import-age-gate           (KS 1515 YoR cap)
+   26. import-regime-gate        (AU SEVS/RAWS / used-import restricted)
+   27. scope-exclusion-gate"
 
   (:require [clojure.set :as set]
             [clojure.string :as str]
@@ -59,7 +61,8 @@
     :funds-not-arrived-gate :custody-handover-gate
     :unknown-market-gate :denied-destination-gate :steering-incompatible-gate
     :export-certificate-gate :import-permit-gate :landed-uncomputable-gate
-    :tariff-conservation-gate :hs-adjudication-gate :scope-exclusion-gate})
+    :tariff-conservation-gate :hs-adjudication-gate
+    :import-age-gate :import-regime-gate :scope-exclusion-gate})
 
 (def always-escalate-ops
   "Money-adjacent writes. Independently kept out of every phase `:auto` set."
@@ -432,6 +435,35 @@
       [{:rule :hs-adjudication-gate
         :detail "HS を確定分類として提案した。候補のみ許可。"}])))
 
+(defn- import-age-violations
+  "KS 1515 eight-year YoR cap. A missing KRA tariff does not hide an
+  ineligible year — eligibility is checked on its own."
+  [{:keys [op]} proposal st]
+  (when (contains? #{:sale/confirm :border/quote} op)
+    (let [veh (veh-of proposal st)
+          dest (dest-of proposal)
+          el (when dest (border/eligibility veh dest))]
+      (when (= :age-ineligible (:reason el))
+        [{:rule :import-age-gate
+          :detail (str "仕向地の年式上限を超える: dest=" dest
+                       " yor=" (:yor el) " min-yor=" (:min-yor el)
+                       " source=" (:source el))}]))))
+
+(defn- import-regime-violations
+  "Used-import restricted destinations (AU SEVS/RAWS) cannot be quoted
+  as if a passenger car simply pays duty. Vintage / SEVS / RAWS are the
+  only documented exceptions in the fixture."
+  [{:keys [op]} proposal st]
+  (when (contains? #{:sale/confirm :border/quote} op)
+    (let [veh (veh-of proposal st)
+          dest (dest-of proposal)
+          el (when dest (border/eligibility veh dest))]
+      (when (= :used-import-restricted (:reason el))
+        [{:rule :import-regime-gate
+          :detail (str "中古輸入制度に該当しない: dest=" dest
+                       " regime=" (:regime el)
+                       " source=" (:source el))}]))))
+
 (defn- scope-exclusion-violations
   [{:keys [op already-transferred?]} proposal]
   (let [effect (:effect proposal)
@@ -478,6 +510,8 @@
                               (landed-uncomputable-violations request proposal st)
                               (tariff-conservation-violations request proposal st)
                               (hs-adjudication-violations request proposal)
+                              (import-age-violations request proposal st)
+                              (import-regime-violations request proposal st)
                               (scope-exclusion-violations request proposal)))
         conf     (:confidence proposal 0.0)
         low?     (< conf confidence-floor)

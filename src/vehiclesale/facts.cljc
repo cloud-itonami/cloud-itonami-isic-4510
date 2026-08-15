@@ -67,7 +67,17 @@
     :name "Operator-registered UAE RTA / GSO credential"
     :class :operator-licensed-uae-rta-feed
     :access :operator-licensed
-    :url nil}])
+    :url nil}
+   {:id :operator-licensed-nzta-feed
+    :name "Operator-registered NZTA entry-certification / WoF credential"
+    :class :operator-licensed-nzta-feed
+    :access :operator-licensed
+    :url "https://nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/used-vehicles-from-japan"}
+   {:id :operator-licensed-kebs-feed
+    :name "Operator-registered KEBS / QISJ Certificate of Roadworthiness credential"
+    :class :operator-licensed-kebs-feed
+    :access :operator-licensed
+    :url "https://www.kebs.org/"}])
 
 (def allowed-source-classes
   "Closed set — a class not in `catalog` (e.g. :inference, :seller-assertion,
@@ -85,9 +95,10 @@
    :note (str "R0 scope: NMVTIS one-report-per-VIN (US federal, free) + NHTSA "
               "recalls (US federal, free) + MLIT リコール・不具合情報 (JP, free) "
               "+ structural operator-licensed feed classes (US DMV, JP AIRIS, "
-              "EU type-approval, UK DVLA, AU PPSR, UAE RTA). Not a live "
+              "EU type-approval, UK DVLA, AU PPSR, UAE RTA, NZTA, KEBS). Not a live "
               "tariff database — duty rows live in vehiclesale.border fixtures. "
-              "Extend only by appending a real, citable catalog entry or a "
+              "Japan-hub demand ranking is a dated compilation, not a live 財務省 "
+              "extract. Extend only by appending a real, citable catalog entry or a "
               "real registered feed credential — never fabricate either.")})
 
 (defn class-allowed? [source-class]
@@ -96,7 +107,8 @@
 (defn licensed-dmv-class? [source-class]
   (contains? #{:operator-licensed-dmv-feed :operator-licensed-shakensho-feed
                :operator-licensed-eu-type-feed :operator-licensed-dvla-feed
-               :operator-licensed-ppsr-feed :operator-licensed-uae-rta-feed}
+               :operator-licensed-ppsr-feed :operator-licensed-uae-rta-feed
+               :operator-licensed-nzta-feed :operator-licensed-kebs-feed}
              source-class))
 
 (def odometer-exempt-model-year-age

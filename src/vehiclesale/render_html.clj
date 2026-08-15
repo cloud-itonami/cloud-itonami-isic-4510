@@ -214,6 +214,18 @@
             :dest-country :de
             :hs {:hs "870323" :adjudicated? true}}
            dealer)
+    ;; HARD: KS 1515 age cap (JP-500 2016 → Kenya)
+    (exec! actor "ke-age"
+           {:op :sale/confirm :subject "JP-500" :vin "JP-500"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :ke :export-certified? true :import-permit? true}
+           dealer)
+    ;; HARD: AU used-import SEVS/RAWS (duty exists; regime does not)
+    (exec! actor "au-sevs"
+           {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+            :lien-cleared? true :repair-history-disclosed? true
+            :dest-country :au :export-certified? true :import-permit? true}
+           dealer)
     ;; HARD: DE listing without dealer licence
     (exec! actor "no-dealer-lic"
            (merge (get-in (store/demo-data) [:vehicles "DE-100"])
@@ -272,6 +284,7 @@
          :data-mileage (str (:mileage listing))
          :data-body (some-> (:body-type listing) name)
          :data-country (name (or (:country listing) (:jurisdiction listing) :na))
+         :data-export (catalog/export-dest-tokens listing)
          :data-q (str (:make listing) " " (:model listing) " " (:grade listing) " "
                       (get catalog/prefectures (:prefecture listing)) " "
                       (:country-label listing))}
@@ -326,6 +339,31 @@
            (catalog/money (:landed/total-minor q) (:landed/currency q))])
         (border/quotes-from listing)))
 
+(defn- corridor-rows [listing]
+  (mapv (fn [{:keys [rank iso label units note in-table? eligible?
+                     eligibility-reason landed-computable? landed-missing omit-reason]}]
+          [(str rank)
+           (str label " (" (name iso) ")")
+           (catalog/grouped-int units)
+           (cond (not in-table?) (str "市場表に無い: " (name (or omit-reason :n-a)))
+                 eligible? "適格"
+                 :else (name (or eligibility-reason :n-a)))
+           (cond (not in-table?) "—"
+                 landed-computable? "概算可"
+                 :else (name (or landed-missing :n-a)))
+           (str note)])
+        (border/corridor-board listing)))
+
+(defn- demand-rows []
+  (mapv (fn [{:keys [rank iso units note in-table? omit-reason]}]
+          [(str rank)
+           (str (or (get-in border/markets [iso :label]) (name iso))
+                " (" (name iso) ")")
+           (catalog/grouped-int units)
+           (if in-table? "見積対象" (str "除外: " (name (or omit-reason :n-a))))
+           (str note)])
+        (:rows border/jp-export-demand)))
+
 (defn- procedure-rows [listing]
   (let [origin (border/origin-of listing)
         dests (map :landed/dest (border/quotes-from listing))
@@ -376,6 +414,13 @@
              (dds/table {:headers ["費目" "円/年"]
                          :rows (cost-rows (:running-cost listing))})
              [:p {:class "muted"} (get-in listing [:running-cost :assumption])]))
+     (dds/heading 3 "日本からの需要順（2025 輸出台数・二次集計）" {:size "24"})
+     (dds/table {:headers ["順位" "仕向地" "台数" "適格" "関税概算" "注"]
+                 :rows (corridor-rows listing)})
+     [:p {:class "muted"}
+      (str "出典 " (get-in border/jp-export-demand [:source])
+           " as-of " (get-in border/jp-export-demand [:as-of])
+           "。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。")]
      (dds/heading 3 "国境手続（ラベル。通関申告はしない）" {:size "24"})
      [:p {:class "muted"}
       (str "出品国 " (name (or origin :na))
@@ -405,17 +450,30 @@
         pref-opts (into [["" "地域（すべて）"]]
                         (map (fn [[k v]] [(name k) v]) catalog/prefectures))
         body-opts (into [["" "ボディ（すべて）"]]
-                        (map (fn [[k v]] [(name k) v]) catalog/body-types))]
+                        (map (fn [[k v]] [(name k) v]) catalog/body-types))
+        export-opts (into [["" "輸出先（日本ハブの需要順）"]]
+                          (map (fn [iso]
+                                 [(name iso) (get-in border/markets [iso :label] (name iso))])
+                               (border/jp-demand-dests)))]
     [:section {:class "view is-active" :id "view-search" :data-view "search"}
      (dds/heading 2 "中古車を探す" {:size "32"})
      [:p {:class "muted"}
       (str "掲載 " (count listings)
-           " 台（閉じたデモ市場）。架空の在庫です。実在の車両・販売店ではありません。通関申告はしません。")]
+           " 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / ケニア / NZ）から適格判定する。"
+           "架空の在庫です。通関申告はしません。")]
+     (dds/heading 3 "日本からの中古車輸出需要（2025）" {:size "24"})
+     (dds/table {:headers ["順位" "仕向地" "台数" "この actor" "注"]
+                 :rows (demand-rows)})
+     [:p {:class "muted"}
+      (str "総計 " (catalog/grouped-int (:total-units border/jp-export-demand))
+           " 台。出典は JUMV の二次集計（" (:as-of border/jp-export-demand)
+           "）。チリは LHD のため次スライス。ロシアは載せない。")]
      [:form {:class "filter-row" :id "search-form" :action "#" :onsubmit "return false;"}
       [:label "キーワード"
        [:input {:type "search" :id "q" :name "q" :placeholder "メーカー・車種・国・地域"}]]
       [:label "メーカー" (dds/select {:id "make" :name "make" :value ""} maker-opts)]
       [:label "国" (dds/select {:id "country" :name "country" :value ""} country-opts)]
+      [:label "輸出先" (dds/select {:id "export-dest" :name "export-dest" :value ""} export-opts)]
       [:label "地域" (dds/select {:id "prefecture" :name "prefecture" :value ""} pref-opts)]
       [:label "ボディ" (dds/select {:id "body" :name "body" :value ""} body-opts)]
       [:label "上限価格（万円・円換算）"
@@ -509,6 +567,7 @@ function applyFilters(){
   var q=(document.getElementById('q').value||'').toLowerCase();
   var make=document.getElementById('make').value;
   var country=document.getElementById('country') && document.getElementById('country').value;
+  var ex=document.getElementById('export-dest') && document.getElementById('export-dest').value;
   var pref=document.getElementById('prefecture').value;
   var body=document.getElementById('body').value;
   var pmax=document.getElementById('price-max').value;
@@ -518,6 +577,10 @@ function applyFilters(){
     var ok=true;
     if(make && card.getAttribute('data-make')!==make) ok=false;
     if(country && card.getAttribute('data-country')!==country) ok=false;
+    if(ex){
+      var toks=(card.getAttribute('data-export')||'').split(',');
+      if(toks.indexOf(ex)<0) ok=false;
+    }
     if(pref && card.getAttribute('data-prefecture')!==pref) ok=false;
     if(body && card.getAttribute('data-body')!==body) ok=false;
     if(pmax && Number(card.getAttribute('data-price'))>Number(pmax)*10000) ok=false;
@@ -547,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function(){
         hits (catalog/search all {})]
     (page/->page
      {:title "中古車マーケット — cloud-itonami-isic-4510"
-      :description "ISIC 4510 の中古車出品検索。VehicleSaleGovernor が出品・成約・エスクロー認可・預かり・国境概算を検閲する。"
+      :description "ISIC 4510 の中古車出品検索。日本ハブ。需要の高い仕向地から適格判定する。"
       :lang "ja"
       :css (slurp (io/resource "jp_go_dds/dds.css"))
       :app-css app-css
@@ -556,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function(){
       [:header
        (dds/heading 1 "中古車マーケット" {:size "45"})
        [:p {:class "muted"}
-        "cloud-itonami-isic-4510 · 出品・開示・成約決定・エスクロー認可・国境概算。送金しない。通関申告しない。"]]
+        "cloud-itonami-isic-4510 · 日本の在庫を中心に、需要の高い仕向地から適格判定する。送金しない。通関申告しない。"]]
       [:nav {:class "site-nav" :aria-label "ページ内"}
        (dds/button "在庫を探す" {:href "#search" :type :solid-fill})
        (dds/button "出品コンソール" {:href "#operator" :type :outline})]

@@ -17,8 +17,9 @@
   (let [hits (catalog/search (listings) {})]
     (is (every? #(true? (:catalog? %)) hits))
     (is (not-any? #(= :sold (:listed-status %)) hits))
-    (is (= 9 (count hits)))
-    (is (some #{:de :gb :au :ae} (map :jurisdiction hits)))))
+    (is (= 10 (count hits)))
+    (is (some #{:de :gb :au :ae :nz} (map :jurisdiction hits)))
+    (is (= :jp (:jurisdiction (first hits))))))
 
 (deftest jp-slice-still-filters
   (let [hits (catalog/search (listings) {:jurisdiction :jp})]
@@ -63,4 +64,19 @@
     (is (false? (:scan-complete? impreza)))
     (is (pos? (get-in prius [:running-cost :total-yen])))
     (let [bmw (first (filter #(= "DE-100" (:vin %)) all))]
-      (is (nil? (:running-cost bmw))))))
+      (is (nil? (:running-cost bmw))))
+    (let [aqua (first (filter #(= "NZ-100" (:vin %)) all))]
+      (is (= :nz (:jurisdiction aqua)))
+      (is (nil? (:running-cost aqua))))))
+
+(deftest export-dest-ke-drops-over-age-and-lhd
+  (let [all (listings)
+        hits (catalog/search all {:export-dest :ke})
+        vins (set (map :vin hits))]
+    (is (contains? vins "JP-100"))
+    (is (contains? vins "JP-200"))
+    (is (contains? vins "JP-400"))
+    (is (not (contains? vins "JP-300")))
+    (is (not (contains? vins "JP-500")))
+    (is (not (contains? vins "DE-100")))
+    (is (not (contains? vins "NZ-100")))))

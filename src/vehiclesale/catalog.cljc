@@ -33,7 +33,7 @@
 
 (def currency-prefix
   {:jpy "¥" :usd "$" :eur "€" :gbp "£" :aud "A$" :aed "AED "
-   :nzd "NZ$" :cad "C$" :sgd "S$"})
+   :nzd "NZ$" :cad "C$" :sgd "S$" :kes "KSh " :tzs "TSh "})
 
 (defn grouped-int
   "Thousands-separated integer. Used for yen and for km."
@@ -91,7 +91,7 @@
   ignored. Sold rows (`:listed-status :sold`) are excluded unless
   `:include-sold?` is true. Default inventory is `:catalog? true`."
   [listings {:keys [make prefecture year-min year-max price-max mileage-max
-                    body-type q include-sold? jurisdiction country]
+                    body-type q include-sold? jurisdiction country export-dest]
              :or {include-sold? false}}]
   (->> listings
        (filter #(true? (:catalog? %)))
@@ -106,15 +106,28 @@
        (filter #(or (nil? price-max)
                     (and (price-jpy %) (<= (price-jpy %) (long price-max)))))
        (filter #(or (nil? mileage-max) (and (:mileage %) (<= (:mileage %) mileage-max))))
+       (filter #(or (nil? export-dest)
+                    (border/eligible? % export-dest)))
        (filter #(or (nil? q) (empty? q)
                     (some (fn [field] (includes-ci? field q))
                           [(:make %) (:model %) (:grade %) (:dealer %)
                            (get prefectures (:prefecture %))
                            (get countries (or (:country %) (:jurisdiction %)))])))
-       (sort-by (juxt (comp - #(or % 0) :year)
+       (sort-by (juxt #(if (= :jp (or (:country %) (:jurisdiction %))) 0 1)
+                      (comp - #(or % 0) :year)
                       #(or (price-jpy %) 0)
                       :vin))
        vec))
+
+(defn export-dest-tokens
+  "Comma-separated dest codes this listing is eligible to enter.
+  Client-side 輸出先 filter reads this so the SPA does not re-implement
+  KS 1515 / SEVS."
+  [veh]
+  (->> (border/jp-demand-dests)
+       (filter #(border/eligible? veh %))
+       (map name)
+       (str/join ",")))
 
 (defn makers [listings]
   (->> listings (map :make) (remove nil?) distinct sort vec))

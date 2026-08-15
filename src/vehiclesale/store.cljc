@@ -72,7 +72,7 @@
   carries a demo active lien and `vin-300` a demo salvage title purely to
   exercise the governor gates — not claims about real vehicles.
 
-  `JP-*` and `DE-`/`GB-`/`AU-`/`AE-` rows are the public catalog
+  `JP-*`, `DE-`/`GB-`/`AU-`/`AE-`/`NZ-` rows are the public catalog
   (`:catalog? true`). Makes, models, prices and licence numbers are
   invented. They are not listings of real cars or real dealers.
   US `vin-*` rows stay operator-only."
@@ -208,7 +208,20 @@
               :weight-kg 2735 :fuel-economy-km-l 8.5
               :doors 5 :seats 7 :drive :4wd
               :length-mm 5175 :width-mm 1995 :height-mm 1940
-              :scan (body/demo-scan "AE-100")}}
+              :scan (body/demo-scan "AE-100")}
+    "NZ-100" {:vin "NZ-100" :jurisdiction :nz :country :nz :catalog? true
+              :make "トヨタ" :model "アクア" :grade "S" :year 2018
+              :mileage 62000 :price 14500M :currency :nzd :steering :rhd
+              :region :auckland :body-type :hatch :fuel :hybrid
+              :displacement-cc 1500 :color "ホワイト"
+              :inspection-expires "2026-09" :repair-history? false
+              :dealer "Demo Motors Auckland"
+              :dealer-license "NZ-MVR-DEMO-AQUA"
+              :title-status :clean :listed-status :listed
+              :weight-kg 1080 :fuel-economy-km-l 24.0
+              :doors 5 :seats 5 :drive :ff
+              :length-mm 3995 :width-mm 1695 :height-mm 1445
+              :scan (body/demo-scan "NZ-100")}}
    :title-records
    {"vin-100" {:vin "vin-100" :lien-holder nil :active? false}
     "vin-200" {:vin "vin-200" :lien-holder "Demo Credit Union (fictitious)" :active? true}
@@ -222,7 +235,8 @@
     "DE-100" {:vin "DE-100" :lien-holder nil :active? false}
     "GB-100" {:vin "GB-100" :lien-holder nil :active? false}
     "AU-100" {:vin "AU-100" :lien-holder nil :active? false}
-    "AE-100" {:vin "AE-100" :lien-holder nil :active? false}}
+    "AE-100" {:vin "AE-100" :lien-holder nil :active? false}
+    "NZ-100" {:vin "NZ-100" :lien-holder nil :active? false}}
    :odometer-records
    {"vin-100" {:vin "vin-100" :reading 32000 :date "2026-06-01"
                :source {:class :federal-title-registry :ref "nmvtis-doj-gateway:vin-100"}}
@@ -247,7 +261,9 @@
     "AU-100" {:vin "AU-100" :reading 64000 :date "2026-05-20"
               :source {:class :operator-licensed-ppsr-feed :ref "ppsr-demo:AU-100"}}
     "AE-100" {:vin "AE-100" :reading 35000 :date "2026-06-08"
-              :source {:class :operator-licensed-uae-rta-feed :ref "uae-rta-demo:AE-100"}}}
+              :source {:class :operator-licensed-uae-rta-feed :ref "uae-rta-demo:AE-100"}}
+    "NZ-100" {:vin "NZ-100" :reading 62000 :date "2026-06-18"
+              :source {:class :operator-licensed-nzta-feed :ref "nzta-demo:NZ-100"}}}
    :dmv-licenses
    {"dmv-demo-ca" {:license-id "dmv-demo-ca" :provider "Demo State DMV Data Access (fictitious)"
                    :states #{:ca :nv} :active? true}
@@ -271,7 +287,13 @@
                  :states #{:au :nsw} :active? true}
     "uae-rta-demo" {:license-id "uae-rta-demo"
                     :provider "Demo UAE RTA / GSO feed (fictitious)"
-                    :states #{:ae :dubai} :active? true}}
+                    :states #{:ae :dubai} :active? true}
+    "nzta-demo" {:license-id "nzta-demo"
+                 :provider "Demo NZTA entry-cert / WoF feed (fictitious)"
+                 :states #{:nz :auckland} :active? true}
+    "kebs-demo" {:license-id "kebs-demo"
+                 :provider "Demo KEBS / QISJ CoR feed (fictitious)"
+                 :states #{:ke :nairobi} :active? true}}
    :contracts
    {"tenant-acme"  {:tenant "tenant-acme" :tier :tier/dealer :active? true :purpose :dealer-inventory}
     "tenant-basic" {:tenant "tenant-basic" :tier :tier/basic :active? true :purpose :retail-buyer}}
@@ -293,7 +315,9 @@
     "Demo Motors Sydney" {:seller-id "Demo Motors Sydney" :verified? true
                           :rail :stripe-separate :account "acct_demo_sydney"}
     "Demo Motors Dubai" {:seller-id "Demo Motors Dubai" :verified? true
-                         :rail :stripe-separate :account "acct_demo_dubai"}}
+                         :rail :stripe-separate :account "acct_demo_dubai"}
+    "Demo Motors Auckland" {:seller-id "Demo Motors Auckland" :verified? true
+                            :rail :stripe-separate :account "acct_demo_auckland"}}
    :custody
    {"JP-100" {:vin "JP-100" :status :at-dealer :holder "デモモータース東京"}
     "JP-200" {:vin "JP-200" :status :at-dealer :holder "デモオート大阪"}
@@ -303,7 +327,8 @@
     "DE-100" {:vin "DE-100" :status :at-dealer :holder "Demo Autohaus München"}
     "GB-100" {:vin "GB-100" :status :at-dealer :holder "Demo Motors London"}
     "AU-100" {:vin "AU-100" :status :at-dealer :holder "Demo Motors Sydney"}
-    "AE-100" {:vin "AE-100" :status :at-dealer :holder "Demo Motors Dubai"}}
+    "AE-100" {:vin "AE-100" :status :at-dealer :holder "Demo Motors Dubai"}
+    "NZ-100" {:vin "NZ-100" :status :at-dealer :holder "Demo Motors Auckland"}}
    :escrows {}
    :x402-receipts {}
    :export-certs {}

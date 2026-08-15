@@ -393,3 +393,23 @@
                      agent-p3)]
     (is (= :commit (get-in res [:state :disposition])))
     (is (= :de (:dest-country (store/border-quote db "bq-JP-100-de"))))))
+
+(deftest kenya-age-cap-holds-2016
+  (let [[db actor] (fresh)
+        res (exec-op actor "ke-age"
+                     {:op :sale/confirm :subject "JP-500" :vin "JP-500"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :ke :export-certified? true :import-permit? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:import-age-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest au-sevs-regime-holds-even-with-certs
+  (let [[db actor] (fresh)
+        res (exec-op actor "au-sevs"
+                     {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :au :export-certified? true :import-permit? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:import-regime-gate} (-> (store/ledger db) first :basis)))))

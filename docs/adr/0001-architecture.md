@@ -21,7 +21,7 @@ vehicles」を選定した。`cloud-itonami-isic-4774`(中古品全般のリセ�
 > **VehicleSale-LLM は、VehicleSaleGovernor が拒否する出品確定・成約確定・
 > 紛争解決を決して行わない。**
 
-### 2. VehicleSaleGovernor は HARD 25 + SOFT（confidence / salvage / dispute / money-rail / filings-adjacent）
+### 2. VehicleSaleGovernor は HARD 27 + SOFT（confidence / salvage / dispute / money-rail / filings-adjacent）
 
 US 成約のオドメーター開示は `:us` のみ。国境は `vehiclesale.border`
 （`cloud-itonami-marketplace-crossborder` と同じ禁止: 通関申告しない、

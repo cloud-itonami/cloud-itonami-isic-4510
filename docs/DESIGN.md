@@ -24,7 +24,7 @@ Dealership/marketplace 型の中古/新車販売を、`cloud-itonami-isic-6311`
 
 ## 2. VehicleSaleGovernor(独立検閲層)
 
-`src/vehiclesale/policy.cljc`。HARD 25 + SOFT（confidence / salvage /
+`src/vehiclesale/policy.cljc`。HARD 27 + SOFT（confidence / salvage /
 dispute / money-rail / filings-adjacent）。US 成約のオドメーター開示は
 `:us` のみ（49 U.S.C. を他国に適用しない）。JP は
 `kobutsusho-license-gate`。免許が必要な非 JP 市場は
@@ -32,9 +32,12 @@ dispute / money-rail / filings-adjacent）。US 成約のオドメーター開�
 `denied-destination-gate`（`:zz` fixture）、
 `steering-incompatible-gate`、`export-certificate-gate`、
 `import-permit-gate`、`landed-uncomputable-gate`、
-`tariff-conservation-gate`、`hs-adjudication-gate`。
+`tariff-conservation-gate`、`hs-adjudication-gate`、
+`import-age-gate`（KS 1515 初度登録年）、
+`import-regime-gate`（AU SEVS/RAWS）。
 `vehiclesale.border` は `cloud-itonami-marketplace-crossborder` と同じ
 禁止（申告しない / 分類しない / 裁定しない / 無い税率を捏造しない）。
+日本ハブの需要順は 2025 年の二次集計。ロシアは市場表に載せない。
 
 ## 3. R0 の正直なスコープ
 
@@ -42,8 +45,10 @@ dispute / money-rail / filings-adjacent）。US 成約のオドメーター開�
 recalls、国交省リコール・不具合情報。構造的クラスは US DMV / JP AIRIS /
 EU type-approval / UK DVLA / AU PPSR / UAE RTA。関税率は
 `vehiclesale.border` の test-fixture（`as-of 2026-08`）。閉じた市場であり
-195 か国gazetteer ではない。シンガポールは ARF/OMV が無いので
-uncomputable。US VAT は連邦 0 + `:vat-gap :state-tax`。
+195 か国gazetteer ではない。日本ハブの需要順（UAE / TZ / KE / NZ）から
+厚くする。ケニア・タンザニアの関税は無いので uncomputable。シンガポールは
+ARF/OMV が無いので uncomputable。オーストラリアの中古輸入は SEVS/RAWS/25年。
+US VAT は連邦 0 + `:vat-gap :state-tax`。
 
 ## 4. Phase 0→3
 

@@ -8,15 +8,20 @@
   `:rate/as-of`. A missing row is `:landed/computable? false`, not a
   guess — a understated quote is worse than an honest refusal.
 
-  Closed demo markets. Not a 195-country gazetteer. An ISO 3166
-  alpha-2 outside `markets` is refused so we cannot invent a duty.
-  `:zz` is the ISO user-assigned code used as the denied-destination
-  fixture (not a real country)."
-  )
+  Japan-hub first. Destination coverage follows observed JP used-vehicle
+  export demand, not GDP. Closed demo markets — not a 195-country
+  gazetteer. An ISO 3166 alpha-2 outside `markets` is refused so we
+  cannot invent a duty. `:zz` is the ISO user-assigned code used as the
+  denied-destination fixture (not a real country). Russia is omitted
+  from the closed table: a sanctions list is operator input.")
 
 (def as-of
   "Clock of the fixture table. Same discipline as running-cost."
   "2026-08")
+
+(def clock-year
+  "Calendar year of `as-of`. Age caps are year-granular (KEBS YoR)."
+  2026)
 
 (def rate-source "test-fixture")
 
@@ -24,47 +29,104 @@
   "ISO 3166 alpha-2 → profile. Labels are Japanese for the SPA.
   `:dealer-license-required?` is the local trade-licence analogue of
   古物商. `:inspection-required-on-sale?` means a current periodic
-  inspection date is required to confirm a *domestic* sale."
+  inspection date is required to confirm a *domestic* sale.
+  `:used-import` is the used-vehicle *regime* (allowed / age-capped /
+  SEVS-RAWS restricted). Missing duty is independent of regime."
   {:jp {:iso :jp :label "日本" :currency :jpy :steering :rhd
         :dealer-license-required? true :inspection-required-on-sale? true
         :inspection-name "車検" :export-doc "輸出抹消登録"
-        :homologation "国交省型式指定 / 輸入車特別取扱"}
+        :homologation "国交省型式指定 / 輸入車特別取扱"
+        :used-import :domestic}
    :us {:iso :us :label "アメリカ合衆国" :currency :usd :steering :lhd
         :dealer-license-required? false :inspection-required-on-sale? false
         :inspection-name "state inspection" :export-doc "title / export title"
-        :homologation "EPA / DOT / NHTSA"}
+        :homologation "EPA / DOT / NHTSA"
+        :used-import :allowed}
    :de {:iso :de :label "ドイツ" :currency :eur :steering :lhd
         :dealer-license-required? true :inspection-required-on-sale? true
         :inspection-name "TÜV/HU" :export-doc "Exportbescheinigung"
-        :homologation "EU type-approval / COC"}
+        :homologation "EU type-approval / COC"
+        :used-import :allowed}
    :gb {:iso :gb :label "イギリス" :currency :gbp :steering :rhd
         :dealer-license-required? true :inspection-required-on-sale? true
         :inspection-name "MOT" :export-doc "export certificate of origin"
-        :homologation "IVA / type approval"}
+        :homologation "IVA / type approval"
+        :used-import :allowed}
    :au {:iso :au :label "オーストラリア" :currency :aud :steering :rhd
         :dealer-license-required? true :inspection-required-on-sale? false
         :inspection-name "state roadworthy" :export-doc "export approval"
-        :homologation "SEVS / RAWS"}
+        :homologation "SEVS / RAWS"
+        :used-import :restricted-sevs-raws
+        :used-import-source "DITRDCA used import: SEVS, RAWS, or 25-year vehicle"
+        :vintage-years 25}
    :ae {:iso :ae :label "アラブ首長国連邦" :currency :aed :steering :rhd
         :dealer-license-required? true :inspection-required-on-sale? false
         :inspection-name "RTA test" :export-doc "export declaration"
-        :homologation "ESMA / GSO"}
+        :homologation "ESMA / GSO"
+        :used-import :allowed
+        :re-export-hub? true}
    :nz {:iso :nz :label "ニュージーランド" :currency :nzd :steering :rhd
-        :dealer-license-required? false :inspection-required-on-sale? false
+        :dealer-license-required? true :inspection-required-on-sale? false
         :inspection-name "WoF" :export-doc "export entry"
-        :homologation "entry certification"}
+        :homologation "NZTA entry certification / MPI biosecurity"
+        :used-import :allowed
+        :psi-label "MPI biosecurity + entry certification"}
    :ca {:iso :ca :label "カナダ" :currency :cad :steering :lhd
         :dealer-license-required? false :inspection-required-on-sale? false
         :inspection-name "provincial safety" :export-doc "export title"
-        :homologation "Registrar of Imported Vehicles"}
+        :homologation "Registrar of Imported Vehicles"
+        :used-import :allowed}
    :fr {:iso :fr :label "フランス" :currency :eur :steering :lhd
         :dealer-license-required? true :inspection-required-on-sale? true
         :inspection-name "contrôle technique" :export-doc "certificat de dédouanement"
-        :homologation "réception UE / RTI"}
+        :homologation "réception UE / RTI"
+        :used-import :allowed}
    :sg {:iso :sg :label "シンガポール" :currency :sgd :steering :rhd
         :dealer-license-required? true :inspection-required-on-sale? false
         :inspection-name "LTA inspection" :export-doc "export permit"
-        :homologation "LTA VES / ARF"}})
+        :homologation "LTA VES / ARF"
+        :used-import :allowed}
+   :ke {:iso :ke :label "ケニア" :currency :kes :steering :rhd
+        :dealer-license-required? true :inspection-required-on-sale? false
+        :inspection-name "KEBS / NTSA" :export-doc "export certificate / logbook"
+        :homologation "KS 1515 / KEBS"
+        :used-import :allowed-with-age-cap
+        :max-age-years 8
+        :age-basis :first-registration-year
+        :age-source "KS 1515:2000 / KEBS importer notice (YoR, rolling calendar)"
+        :psi-label "QISJ Certificate of Roadworthiness"}
+   :tz {:iso :tz :label "タンザニア" :currency :tzs :steering :rhd
+        :dealer-license-required? true :inspection-required-on-sale? false
+        :inspection-name "TBS / TRA" :export-doc "export certificate / logbook"
+        :homologation "TBS PVoC"
+        :used-import :allowed
+        :age-basis :unverified
+        :age-note "Dealer blogs describe an 8-year excise penalty, not a sourced TBS ban. Age is not invented as HARD."
+        :psi-label "TBS PVoC Certificate of Roadworthiness"}})
+
+(def jp-export-demand
+  "Japan-origin used-vehicle export demand, calendar 2025. Secondary
+  compilation (JUMV), not a live 財務省 extract. `:in-table?` is whether
+  this actor will even attempt a quote. Russia is ranked but omitted
+  from `markets` because a sanctions list is operator input."
+  {:as-of "2025"
+   :source "JUMV used-vehicle export ranking (compilation of Japan export counts)"
+   :source-url "https://jumv.net/basic_knowledge_usedcar_export/export_statistics/statistics?year_from=2025"
+   :total-units 1714279
+   :rows [{:rank 1 :iso :ae :units 253897 :in-table? true
+           :note "再輸出ハブ（国内需要だけではない）"}
+          {:rank 2 :iso :ru :units 186583 :in-table? false
+           :omit-reason :sanctions-operator-input
+           :note "制裁リストは operator 入力。閉じた市場に載せない。"}
+          {:rank 3 :iso :tz :units 119036 :in-table? true
+           :note "関税は未掲載（捏造しない）。TBS PVoC は手続ラベル。"}
+          {:rank 4 :iso :cl :units 83523 :in-table? false
+           :omit-reason :lhd-corridor-deferred
+           :note "LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。"}
+          {:rank 5 :iso :ke :units 77286 :in-table? true
+           :note "KS 1515 の 8年（初度登録年）。QISJ CoR。関税は未掲載。"}
+          {:rank 6 :iso :nz :units 71633 :in-table? true
+           :note "関税 0% + GST 15%。NZTA entry certification / MPI。"}]})
 
 (def denied-destinations
   "ISO user-assigned `:zz`. A real sanctions list is an operator input
@@ -72,30 +134,35 @@
   #{:zz})
 
 (def jpy-per-unit
-  "JPY per 1 unit of listing currency. Fixture, not a live FX feed."
+  "JPY per 1 unit of listing currency. Fixture, not a live FX feed.
+  KES/TZS are omitted: East-Africa landed cost stays uncomputable."
   {:jpy 1 :usd 150 :eur 165 :gbp 190 :aud 100 :aed 41 :nzd 90 :cad 110 :sgd 112})
 
 (def duty-bps-by-dest
-  "MFN passenger-car (HS 8703) duty in basis points. `nil` = no row."
+  "MFN passenger-car (HS 8703) duty in basis points. `nil` = no row.
+  KE/TZ have no row — TRA/KRA schedules are not invented."
   {:jp 0 :us 250 :de 1000 :gb 1000 :au 500 :ae 500 :nz 0 :ca 620 :fr 1000
-   :sg nil})
+   :sg nil :ke nil :tz nil})
 
 (def vat-bps-by-dest
   "GST/VAT/消費税. US federal has none; state sales tax is a documented
   gap, not zeroed silently — `:us` vat-bps 0 with `:vat-gap :state-tax`.
-  `nil` = uncomputable (Singapore ARF/OMV)."
+  `nil` = uncomputable (Singapore ARF/OMV; Kenya/Tanzania schedules)."
   {:jp 1000 :us 0 :de 1900 :gb 2000 :au 1000 :ae 500 :nz 1500 :ca 500 :fr 2000
-   :sg nil})
+   :sg nil :ke nil :tz nil})
 
 (def freight-dest-minor
   "Ocean RoRo assumption, in *destination* whole currency units.
-  Missing corridor → uncomputable freight."
-   {[:jp :au] 1800 [:jp :nz] 1600 [:jp :gb] 2200 [:jp :ae] 1400
-    [:jp :us] 2500 [:jp :de] 2300 [:jp :ca] 2600 [:jp :fr] 2300 [:jp :sg] 1600
+  Missing corridor → uncomputable freight. KE/TZ freight is present so
+  a quote fails on duty/VAT nil, not on a missing corridor."
+  {[:jp :au] 1800 [:jp :nz] 1600 [:jp :gb] 2200 [:jp :ae] 1400
+   [:jp :us] 2500 [:jp :de] 2300 [:jp :ca] 2600 [:jp :fr] 2300 [:jp :sg] 1600
+   [:jp :ke] 1800 [:jp :tz] 1900
    [:de :us] 1800 [:de :jp] 240000 [:de :gb] 900 [:de :fr] 400
    [:us :ca] 800 [:us :de] 1500 [:us :jp] 280000 [:us :gb] 1600
    [:gb :jp] 250000 [:gb :de] 700 [:gb :au] 2100
-   [:au :jp] 220000 [:ae :jp] 180000 [:fr :de] 350 [:ca :us] 700})
+   [:au :jp] 220000 [:ae :jp] 180000 [:fr :de] 350 [:ca :us] 700
+   [:nz :jp] 210000})
 
 (defn market [iso]
   (get markets iso))
@@ -157,6 +224,86 @@
         b (:steering (market dest))]
     (or (nil? a) (nil? b) (= a b))))
 
+(defn first-registration-year
+  "KS 1515 uses year of first registration. Demo rows that omit it fall
+  back to model year — a documented approximation, not a logbook."
+  [veh]
+  (or (:first-registration-year veh) (:year veh)))
+
+(defn min-first-registration-year
+  "KEBS rolling calendar: 2024 notice allowed YoR 2017+, 2025 2018+.
+  min-yor = clock-year - (max-age-years - 1)."
+  [dest]
+  (let [m (market dest)]
+    (when (and (= :first-registration-year (:age-basis m))
+               (:max-age-years m))
+      (- clock-year (dec (:max-age-years m))))))
+
+(defn age-ok?
+  [veh dest]
+  (let [min-y (min-first-registration-year dest)
+        yor (first-registration-year veh)]
+    (or (nil? min-y) (and yor (>= yor min-y)))))
+
+(defn vintage-unrestricted?
+  "AU 25-year path. Not a SEVS listing."
+  [veh dest]
+  (let [n (:vintage-years (market dest))]
+    (boolean (and n (:year veh) (<= (:year veh) (- clock-year n))))))
+
+(defn regime-ok?
+  [veh dest]
+  (let [regime (or (:used-import (market dest)) :allowed)]
+    (case regime
+      (:allowed :allowed-with-age-cap :domestic) true
+      :restricted-sevs-raws
+      (or (true? (:sevs-eligible? veh))
+          (true? (:raws? veh))
+          (vintage-unrestricted? veh dest))
+      false)))
+
+(defn eligibility
+  "Import *eligibility*, independent of duty arithmetic. A 2016 JP car
+  is not Kenya-eligible even though we also refuse to invent a KRA
+  tariff. `:ok? false` is a HARD hold, not a warning."
+  [veh dest]
+  (cond
+    (denied-dest? dest)
+    {:ok? false :reason :denied-destination :dest dest}
+    (not (known-market? dest))
+    {:ok? false :reason :unknown-destination :dest dest}
+    (not (known-market? (origin-of veh)))
+    {:ok? false :reason :unknown-origin :origin (origin-of veh)}
+    (not (cross-border? (origin-of veh) dest))
+    {:ok? true :reason :domestic :dest dest}
+    (not (age-ok? veh dest))
+    {:ok? false :reason :age-ineligible :dest dest
+     :yor (first-registration-year veh)
+     :min-yor (min-first-registration-year dest)
+     :source (:age-source (market dest))}
+    (not (regime-ok? veh dest))
+    {:ok? false :reason :used-import-restricted :dest dest
+     :regime (:used-import (market dest))
+     :source (:used-import-source (market dest))}
+    (and (cross-border? (origin-of veh) dest)
+         (not (compatible-steering? (origin-of veh) dest)))
+    {:ok? false :reason :steering-incompatible
+     :origin (origin-of veh) :dest dest}
+    :else
+    {:ok? true :reason :eligible :dest dest}))
+
+(defn eligible?
+  [veh dest]
+  (true? (:ok? (eligibility veh dest))))
+
+(defn jp-demand-dests
+  "Closed-table destinations from the Japan-hub demand ranking."
+  []
+  (->> (:rows jp-export-demand)
+       (filter :in-table?)
+       (map :iso)
+       vec))
+
 (defn procedure
   "Ordered checklist. Each step is a label, not a filing."
   [origin dest]
@@ -164,22 +311,33 @@
     [{:id :domestic :label "国内取引（輸出入なし）" :required? false}]
     (let [o (market origin)
           d (market dest)]
-      [{:id :title-clear :label "輸出国の権原・担保の確認" :required? true}
-       {:id :export-certificate :label (str "輸出証明（" (:export-doc o) "）") :required? true}
-       {:id :transport :label "輸送手配（RoRo / コンテナ）" :required? true}
-       {:id :hs-candidate :label "HS 8703 候補（未確定）" :required? true}
-       {:id :duty-vat-quote :label "関税・付加価値税の概算（国境が正）" :required? true}
-       {:id :import-permit :label (str "輸入側の許可・適合（" (:homologation d) "）") :required? true}
-       {:id :steering :label (str "ハンドル位置 " (name (or (:steering o) :n-a))
-                                  " → " (name (or (:steering d) :n-a)))
-        :required? (not (compatible-steering? origin dest))}
-       {:id :destination-registration :label (str "登録地の検査（" (:inspection-name d) "）")
-        :required? true}])))
+      (cond-> [{:id :title-clear :label "輸出国の権原・担保の確認" :required? true}
+               {:id :export-certificate :label (str "輸出証明（" (:export-doc o) "）") :required? true}
+               {:id :transport :label "輸送手配（RoRo / コンテナ）" :required? true}
+               {:id :hs-candidate :label "HS 8703 候補（未確定）" :required? true}
+               {:id :duty-vat-quote :label "関税・付加価値税の概算（国境が正）" :required? true}
+               {:id :import-permit :label (str "輸入側の許可・適合（" (:homologation d) "）") :required? true}]
+        (:psi-label d)
+        (conj {:id :pre-shipment-inspection :label (str "船前検査（" (:psi-label d) "）") :required? true})
+        (:max-age-years d)
+        (conj {:id :age-cap :label (str "年式上限 " (:max-age-years d) "年（"
+                                       (name (or (:age-basis d) :n-a)) "）")
+               :required? true})
+        (= :restricted-sevs-raws (:used-import d))
+        (conj {:id :sevs-raws :label "中古輸入は SEVS / RAWS / 25年車に限る" :required? true})
+        true
+        (conj {:id :steering :label (str "ハンドル位置 " (name (or (:steering o) :n-a))
+                                        " → " (name (or (:steering d) :n-a)))
+               :required? (not (compatible-steering? origin dest))}
+              {:id :destination-registration :label (str "登録地の検査（" (:inspection-name d) "）")
+               :required? true})))))
 
 (defn landed-cost
   "Returns a quote map. Never guesses a missing rate or corridor.
   Totals are dest-currency whole units. `execute?` is not a key here
-  — this is arithmetic, not a rail."
+  — this is arithmetic, not a rail. Eligibility is *not* folded in:
+  a SEVS-ineligible AU quote can still show the duty arithmetic next
+  to a HARD regime hold."
   [veh dest]
   (let [origin (origin-of veh)
         hs (hs-candidate veh)
@@ -192,7 +350,9 @@
                   0)
         price-jpy (to-jpy (:price veh) origin-ccy)
         cif-dest (when (and price-jpy dest-ccy)
-                   (+ (from-jpy price-jpy dest-ccy) (if (number? freight) freight 0)))
+                   (let [converted (from-jpy price-jpy dest-ccy)]
+                     (when (and converted (number? freight))
+                       (+ converted freight))))
         missing (cond
                   (denied-dest? dest) :denied-destination
                   (not (known-market? origin)) :unknown-origin
@@ -200,6 +360,7 @@
                   (nil? dest-ccy) :unknown-destination
                   (nil? price-jpy) :unknown-fx
                   (not (number? freight)) :missing-freight-corridor
+                  (nil? cif-dest) :unknown-fx
                   (= duty-bps ::missing) :missing-duty-row
                   (nil? duty-bps) :duty-uncomputable
                   (= vat-bps ::missing) :missing-vat-row
@@ -271,3 +432,24 @@
        (filter :landed/computable?)
        (sort-by :landed/dest)
        vec))
+
+(defn corridor-board
+  "Japan-hub demand rows joined with this vehicle's eligibility +
+  landed-cost. Used by the SPA so a Kenya age fail is visible even
+  when duty is also uncomputable."
+  [veh]
+  (mapv (fn [{:keys [rank iso units note in-table? omit-reason]}]
+          (let [el (when in-table? (eligibility veh iso))
+                landed (when in-table? (landed-cost veh iso))]
+            {:rank rank
+             :iso iso
+             :label (or (:label (market iso)) (name iso))
+             :units units
+             :note note
+             :in-table? in-table?
+             :omit-reason omit-reason
+             :eligible? (boolean (:ok? el))
+             :eligibility-reason (:reason el)
+             :landed-computable? (boolean (:landed/computable? landed))
+             :landed-missing (:landed/missing landed)}))
+        (:rows jp-export-demand)))
