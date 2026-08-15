@@ -2747,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', function(){
       </nav>
       <section class="view is-active" id="view-search" data-view="search">
         <h2 class="dads-heading" data-size="32">中古車を探す</h2>
-        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ）から適格判定する。架空の在庫です。通関申告はしません。</p>
+        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル）から適格判定する。架空の在庫です。通関申告はしません。</p>
         <h3 class="dads-heading" data-size="24">日本からの中古車輸出需要（2025）</h3>
         <div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -2801,9 +2801,37 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>見積対象</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>見積対象</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>除外: used-import-restricted</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>除外: duty-schedule-deferred</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>除外: used-import-banned</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div>
-        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。ロシアは載せない。</p>
+        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。南ア・タイは制度上閉じる。ロシアは載せない。</p>
         <form class="filter-row" id="search-form" action="#" onsubmit="return false;">
           <label>キーワード<input type="search" id="q" name="q" placeholder="メーカー・車種・国・地域"></label>
           <label>メーカー<span class="dads-select"><span class="dads-select__control">
@@ -2833,6 +2861,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="us">アメリカ合衆国</option>
               <option value="sg">シンガポール</option>
               <option value="nz">ニュージーランド</option>
+              <option value="mn">モンゴル</option>
               <option value="de">ドイツ</option>
               <option value="ke">ケニア</option>
               <option value="ae">アラブ首長国連邦</option>
@@ -2849,6 +2878,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="cl">チリ</option>
               <option value="ke">ケニア</option>
               <option value="nz">ニュージーランド</option>
+              <option value="mn">モンゴル</option>
             </select>
             <svg class="dads-select__chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 17L3 8L4 7L12 15L20 7L21 8L12 17Z" fill="currentcolor"></path>
@@ -2886,7 +2916,7 @@ document.addEventListener('DOMContentLoaded', function(){
         </form>
         <p class="muted" id="result-count"></p>
         <div class="listing-grid" id="listing-grid">
-          <a data-price="1850000" data-year="2021" data-mileage="32000" data-q="トヨタ プリウス S 東京都 日本" data-body="sedan" data-vin="JP-100" data-prefecture="tokyo" data-make="トヨタ" data-export="ae,tz,ke,nz" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-100">
+          <a data-price="1850000" data-year="2021" data-mileage="32000" data-q="トヨタ プリウス S 東京都 日本" data-body="sedan" data-vin="JP-100" data-prefecture="tokyo" data-make="トヨタ" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-100">
             <h3 class="dads-heading" data-size="20">トヨタ プリウス S</h3>
             <p class="price">¥1,850,000</p>
             <p class="meta">2021年 · 32,000 km · 東京都 · 日本</p>
@@ -2894,7 +2924,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">維持費概算 ¥257,839 · スキャン完了</p>
             <p class="meta">デモモータース東京</p>
           </a>
-          <a data-price="980000" data-year="2019" data-mileage="51000" data-q="ホンダ フィット HOME 大阪府 日本" data-body="hatch" data-vin="JP-200" data-prefecture="osaka" data-make="ホンダ" data-export="ae,tz,ke,nz" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-200">
+          <a data-price="980000" data-year="2019" data-mileage="51000" data-q="ホンダ フィット HOME 大阪府 日本" data-body="hatch" data-vin="JP-200" data-prefecture="osaka" data-make="ホンダ" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-200">
             <h3 class="dads-heading" data-size="20">ホンダ フィット HOME</h3>
             <p class="price">¥980,000</p>
             <p class="meta">2019年 · 51,000 km · 大阪府 · 日本</p>
@@ -2902,7 +2932,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">維持費概算 ¥272,577 · スキャン完了</p>
             <p class="meta">デモオート大阪</p>
           </a>
-          <a data-price="1280000" data-year="2018" data-mileage="78000" data-q="日産 セレナ XV 福岡県 日本" data-body="minivan" data-vin="JP-300" data-prefecture="fukuoka" data-make="日産" data-export="ae,tz,nz" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-300">
+          <a data-price="1280000" data-year="2018" data-mileage="78000" data-q="日産 セレナ XV 福岡県 日本" data-body="minivan" data-vin="JP-300" data-prefecture="fukuoka" data-make="日産" data-export="ae,tz,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-300">
             <h3 class="dads-heading" data-size="20">日産 セレナ XV</h3>
             <p class="price">¥1,280,000</p>
             <p class="meta">2018年 · 78,000 km · 福岡県 · 日本</p>
@@ -2910,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">維持費概算 ¥327,150 · スキャン完了</p>
             <p class="meta">デモカー福岡</p>
           </a>
-          <a data-price="450000" data-year="2016" data-mileage="120000" data-q="スバル インプレッサ 1.6i 北海道 日本" data-body="sedan" data-vin="JP-500" data-prefecture="hokkaido" data-make="スバル" data-export="ae,tz,nz" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-500">
+          <a data-price="450000" data-year="2016" data-mileage="120000" data-q="スバル インプレッサ 1.6i 北海道 日本" data-body="sedan" data-vin="JP-500" data-prefecture="hokkaido" data-make="スバル" data-export="ae,tz,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-500">
             <h3 class="dads-heading" data-size="20">スバル インプレッサ 1.6i</h3>
             <p class="price">¥450,000</p>
             <p class="meta">2016年 · 120,000 km · 北海道 · 日本</p>
@@ -2918,7 +2948,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">維持費概算 ¥303,375 · スキャン不足</p>
             <p class="meta">デモ自動車札幌</p>
           </a>
-          <a data-price="3591000" data-year="2021" data-mileage="28000" data-q="MINI Cooper Classic  イギリス" data-body="hatch" data-vin="GB-100" data-make="MINI" data-export="ae,tz,ke,nz" class="listing-card dds-ext-card" data-country="gb" href="#v/GB-100">
+          <a data-price="3591000" data-year="2021" data-mileage="28000" data-q="MINI Cooper Classic  イギリス" data-body="hatch" data-vin="GB-100" data-make="MINI" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="gb" href="#v/GB-100">
             <h3 class="dads-heading" data-size="20">MINI Cooper Classic</h3>
             <p class="price">£18,900</p>
             <p class="meta">2021年 · 28,000 km · イギリス · イギリス</p>
@@ -2926,7 +2956,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">スキャン完了</p>
             <p class="meta">Demo Motors London</p>
           </a>
-          <a data-price="5945000" data-year="2021" data-mileage="35000" data-q="日産 パトロール SE  アラブ首長国連邦" data-body="suv" data-vin="AE-100" data-make="日産" data-export="ae,tz,ke,nz" class="listing-card dds-ext-card" data-country="ae" href="#v/AE-100">
+          <a data-price="5945000" data-year="2021" data-mileage="35000" data-q="日産 パトロール SE  アラブ首長国連邦" data-body="suv" data-vin="AE-100" data-make="日産" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="ae" href="#v/AE-100">
             <h3 class="dads-heading" data-size="20">日産 パトロール SE</h3>
             <p class="price">AED 145,000</p>
             <p class="meta">2021年 · 35,000 km · アラブ首長国連邦 · アラブ首長国連邦</p>
@@ -2934,7 +2964,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">スキャン完了</p>
             <p class="meta">Demo Motors Dubai</p>
           </a>
-          <a data-price="4702500" data-year="2020" data-mileage="42000" data-q="BMW 320d M Sport  ドイツ" data-body="sedan" data-vin="DE-100" data-make="BMW" data-export="" class="listing-card dds-ext-card" data-country="de" href="#v/DE-100">
+          <a data-price="4702500" data-year="2020" data-mileage="42000" data-q="BMW 320d M Sport  ドイツ" data-body="sedan" data-vin="DE-100" data-make="BMW" data-export="mn" class="listing-card dds-ext-card" data-country="de" href="#v/DE-100">
             <h3 class="dads-heading" data-size="20">BMW 320d M Sport</h3>
             <p class="price">€28,500</p>
             <p class="meta">2020年 · 42,000 km · ドイツ · ドイツ</p>
@@ -2942,7 +2972,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">スキャン完了</p>
             <p class="meta">Demo Autohaus München</p>
           </a>
-          <a data-price="4200000" data-year="2019" data-mileage="64000" data-q="トヨタ ハイラックス SR5  オーストラリア" data-body="suv" data-vin="AU-100" data-make="トヨタ" data-export="ae,tz,ke,nz" class="listing-card dds-ext-card" data-country="au" href="#v/AU-100">
+          <a data-price="4200000" data-year="2019" data-mileage="64000" data-q="トヨタ ハイラックス SR5  オーストラリア" data-body="suv" data-vin="AU-100" data-make="トヨタ" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="au" href="#v/AU-100">
             <h3 class="dads-heading" data-size="20">トヨタ ハイラックス SR5</h3>
             <p class="price">A$42,000</p>
             <p class="meta">2019年 · 64,000 km · オーストラリア · オーストラリア</p>
@@ -2950,7 +2980,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">スキャン完了</p>
             <p class="meta">Demo Motors Sydney</p>
           </a>
-          <a data-price="1305000" data-year="2018" data-mileage="62000" data-q="トヨタ アクア S  ニュージーランド" data-body="hatch" data-vin="NZ-100" data-make="トヨタ" data-export="ae,tz,nz" class="listing-card dds-ext-card" data-country="nz" href="#v/NZ-100">
+          <a data-price="1305000" data-year="2018" data-mileage="62000" data-q="トヨタ アクア S  ニュージーランド" data-body="hatch" data-vin="NZ-100" data-make="トヨタ" data-export="ae,tz,nz,mn" class="listing-card dds-ext-card" data-country="nz" href="#v/NZ-100">
             <h3 class="dads-heading" data-size="20">トヨタ アクア S</h3>
             <p class="price">NZ$14,500</p>
             <p class="meta">2018年 · 62,000 km · ニュージーランド · ニュージーランド</p>
@@ -3085,6 +3115,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>概算可</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>概算可</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 jp。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -3169,6 +3231,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>¥0</td>
               <td>¥185,000</td>
               <td>¥2,035,000</td>
+            </tr>
+            <tr>
+              <td>mn</td>
+              <td>870323</td>
+              <td>₮49,045,454</td>
+              <td>5.0%</td>
+              <td>₮2,452,272</td>
+              <td>₮5,149,772</td>
+              <td>₮56,647,498</td>
             </tr>
             <tr>
               <td>nz</td>
@@ -3387,6 +3458,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>概算可</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>概算可</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 jp。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -3471,6 +3574,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>¥0</td>
               <td>¥98,000</td>
               <td>¥1,078,000</td>
+            </tr>
+            <tr>
+              <td>mn</td>
+              <td>870322</td>
+              <td>₮29,272,727</td>
+              <td>5.0%</td>
+              <td>₮1,463,636</td>
+              <td>₮3,073,636</td>
+              <td>₮33,809,999</td>
             </tr>
             <tr>
               <td>nz</td>
@@ -3689,6 +3801,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>概算可</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>概算可</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 jp。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -3773,6 +3917,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>¥0</td>
               <td>¥128,000</td>
               <td>¥1,408,000</td>
+            </tr>
+            <tr>
+              <td>mn</td>
+              <td>870323</td>
+              <td>₮36,090,909</td>
+              <td>5.0%</td>
+              <td>₮1,804,545</td>
+              <td>₮3,789,545</td>
+              <td>₮41,684,999</td>
             </tr>
             <tr>
               <td>nz</td>
@@ -3991,6 +4144,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>概算可</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>概算可</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 jp。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -4075,6 +4260,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>¥0</td>
               <td>¥45,000</td>
               <td>¥495,000</td>
+            </tr>
+            <tr>
+              <td>mn</td>
+              <td>870323</td>
+              <td>₮17,227,272</td>
+              <td>5.0%</td>
+              <td>₮861,363</td>
+              <td>₮1,808,863</td>
+              <td>₮19,897,498</td>
             </tr>
             <tr>
               <td>nz</td>
@@ -4256,6 +4450,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>適格</td>
               <td>missing-freight-corridor</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>missing-freight-corridor</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
             </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 gb。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
@@ -4474,6 +4700,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>missing-freight-corridor</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>missing-freight-corridor</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 ae。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -4667,6 +4925,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>steering-incompatible</td>
               <td>missing-freight-corridor</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>missing-freight-corridor</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
             </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 de。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
@@ -4889,6 +5179,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>missing-freight-corridor</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
             </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>missing-freight-corridor</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
+            </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 au。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -5082,6 +5404,38 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>適格</td>
               <td>概算可</td>
               <td>関税 0% + GST 15%。NZTA entry certification / MPI。</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>モンゴル (mn)</td>
+              <td>66,469</td>
+              <td>適格</td>
+              <td>missing-freight-corridor</td>
+              <td>年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>za (za)</td>
+              <td>64,555</td>
+              <td>市場表に無い: used-import-restricted</td>
+              <td>—</td>
+              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>lk (lk)</td>
+              <td>62,335</td>
+              <td>市場表に無い: duty-schedule-deferred</td>
+              <td>—</td>
+              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>th (th)</td>
+              <td>48,927</td>
+              <td>市場表に無い: used-import-banned</td>
+              <td>—</td>
+              <td>商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。</td>
             </tr>
           </tbody></table>
         </div><p class="muted">出典 JUMV used-vehicle export ranking (compilation of Japan export counts) as-of 2025。財務省の live extract ではない。ロシアは制裁リストが operator 入力のため市場表に載せない。</p><h3 class="dads-heading" data-size="24">国境手続（ラベル。通関申告はしない）</h3><p class="muted">出品国 nz。下記は閉じた市場への概算。関税率は test-fixture 2026-08。HS は候補（未確定）。国境の賦課が正。</p><div class="dads-table">
@@ -5663,6 +6017,12 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>quote</td>
               <td>JP-100</td>
               <td>import-regime-gate</td>
+            </tr>
+            <tr>
+              <td>committed</td>
+              <td>quote</td>
+              <td>JP-100</td>
+              <td>vin, dest-country</td>
             </tr>
             <tr>
               <td>committed</td>

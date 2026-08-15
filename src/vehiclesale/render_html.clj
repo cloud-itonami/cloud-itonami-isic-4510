@@ -236,6 +236,11 @@
            {:op :border/quote :subject "JP-100" :vin "JP-100"
             :dest-country :cl :zofri-reexport? true}
            dealer)
+    ;; Mongolia: RHD accepted, 5%+10% computable, excise is a gap
+    (exec! actor "mn-quote"
+           {:op :border/quote :subject "JP-100" :vin "JP-100"
+            :dest-country :mn}
+           dealer)
     ;; HARD: DE listing without dealer licence
     (exec! actor "no-dealer-lic"
            (merge (get-in (store/demo-data) [:vehicles "DE-100"])
@@ -469,7 +474,7 @@
      (dds/heading 2 "中古車を探す" {:size "32"})
      [:p {:class "muted"}
       (str "掲載 " (count listings)
-           " 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ）から適格判定する。"
+           " 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル）から適格判定する。"
            "架空の在庫です。通関申告はしません。")]
      (dds/heading 3 "日本からの中古車輸出需要（2025）" {:size "24"})
      (dds/table {:headers ["順位" "仕向地" "台数" "この actor" "注"]
@@ -477,7 +482,7 @@
      [:p {:class "muted"}
       (str "総計 " (catalog/grouped-int (:total-units border/jp-export-demand))
            " 台。出典は JUMV の二次集計（" (:as-of border/jp-export-demand)
-           "）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。ロシアは載せない。")]
+           "）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。南ア・タイは制度上閉じる。ロシアは載せない。")]
      [:form {:class "filter-row" :id "search-form" :action "#" :onsubmit "return false;"}
       [:label "キーワード"
        [:input {:type "search" :id "q" :name "q" :placeholder "メーカー・車種・国・地域"}]]
