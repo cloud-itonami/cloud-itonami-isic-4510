@@ -83,3 +83,9 @@
 
 (deftest export-dest-cl-drops-ordinary-passenger
   (is (empty? (catalog/search (listings) {:export-dest :cl}))))
+
+(deftest export-dest-mn-keeps-rhd-and-over-age
+  (let [vins (set (map :vin (catalog/search (listings) {:export-dest :mn})))]
+    (is (contains? vins "JP-100"))
+    (is (contains? vins "JP-500"))
+    (is (contains? vins "DE-100"))))

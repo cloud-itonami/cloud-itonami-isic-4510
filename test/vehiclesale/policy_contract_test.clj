@@ -433,3 +433,14 @@
     (is (= :commit (get-in res [:state :disposition])))
     (is (zero? (get-in q [:quote :landed/duty-bps])))
     (is (= :onward-destination-duty (get-in q [:quote :landed/vat-gap])))))
+
+(deftest mongolia-quote-commits-with-excise-gap
+  (let [[db actor] (fresh)
+        res (exec-op actor "mn-q"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :mn}
+                     agent-p3)
+        q (store/border-quote db "bq-JP-100-mn")]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (= 500 (get-in q [:quote :landed/duty-bps])))
+    (is (= :excise-age-engine (get-in q [:quote :landed/duty-gap])))))

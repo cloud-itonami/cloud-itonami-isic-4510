@@ -82,7 +82,7 @@
   (let [ru (first (filter #(= :ru (:iso %)) (:rows border/jp-export-demand)))]
     (is (false? (:in-table? ru)))
     (is (= :sanctions-operator-input (:omit-reason ru))))
-  (is (= [:ae :tz :cl :ke :nz] (border/jp-demand-dests))))
+  (is (= [:ae :tz :cl :ke :nz :mn] (border/jp-demand-dests))))
 
 (deftest corridor-board-shows-kenya-age-and-missing-duty
   (let [row (first (filter #(= :ke (:iso %)) (border/corridor-board (veh "JP-500"))))]
@@ -130,3 +130,39 @@
   (is (= 1850000 (border/to-jpy 11562500 :clp)))
   (is (= 11562500 (border/from-jpy 1850000 :clp)))
   (is (border/conserved-quote? (border/landed-cost (prius) :cl))))
+
+(deftest mongolia-rhd-is-eligible-without-age-cap
+  (is (true? (border/eligible? (prius) :mn)))
+  (is (true? (border/eligible? (veh "JP-500") :mn)))
+  (is (not (border/compatible-steering? :jp :mn)))
+  (is (true? (border/steering-ok? (prius) :jp :mn)))
+  (is (nil? (border/min-first-registration-year :mn)))
+  (is (= :unverified (get-in border/markets [:mn :age-basis]))))
+
+(deftest mongolia-quote-is-computable-with-excise-gap
+  (let [q (border/landed-cost (prius) :mn)]
+    (is (true? (:landed/computable? q)))
+    (is (= 500 (:landed/duty-bps q)))
+    (is (= 1000 (:landed/vat-bps q)))
+    (is (= :excise-age-engine (:landed/duty-gap q)))
+    (is (border/conserved-quote? q))))
+
+(deftest mongolia-procedure-labels-radiation
+  (let [steps (border/procedure :jp :mn)]
+    (is (some #{:pre-shipment-inspection} (map :id steps)))
+    (is (false? (:required? (first (filter #(= :steering (:id %)) steps)))))))
+
+(deftest demand-ranking-omits-closed-used-import-dests
+  (let [rows (:rows border/jp-export-demand)
+        za (first (filter #(= :za (:iso %)) rows))
+        lk (first (filter #(= :lk (:iso %)) rows))
+        th (first (filter #(= :th (:iso %)) rows))]
+    (is (false? (:in-table? za)))
+    (is (= :used-import-restricted (:omit-reason za)))
+    (is (false? (:in-table? lk)))
+    (is (= :duty-schedule-deferred (:omit-reason lk)))
+    (is (false? (:in-table? th)))
+    (is (= :used-import-banned (:omit-reason th)))
+    (is (not (border/known-market? :za)))
+    (is (not (border/known-market? :lk)))
+    (is (not (border/known-market? :th)))))

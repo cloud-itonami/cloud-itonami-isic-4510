@@ -112,13 +112,26 @@
         :vintage-years 50
         :opposite-steering :reexport-or-waiver
         :re-export-hub? true
-        :steering-note "LHD country. JP RHD volume is ZOFRI re-export (Iquique), not mainland road use. A 5-year age cap is dealer-blog only and is not invented as HARD."}})
+        :steering-note "LHD country. JP RHD volume is ZOFRI re-export (Iquique), not mainland road use. A 5-year age cap is dealer-blog only and is not invented as HARD."}
+   :mn {:iso :mn :label "モンゴル" :currency :mnt :steering :lhd
+        :dealer-license-required? true :inspection-required-on-sale? false
+        :inspection-name "NATC / technical inspection"
+        :export-doc "export certificate / logbook"
+        :homologation "Mongolia Customs / NATC"
+        :used-import :allowed
+        :age-basis :unverified
+        :age-note "No sourced age ban. Dealer blogs describe higher excise on older cars, not a HARD cap."
+        :opposite-steering :import-license
+        :steering-note "LHD country. RHD Japanese imports are the volume path; a Mongolian import licence is a procedure label, not a silent steering HARD."
+        :psi-label "radiation check (Japan-origin)"}})
 
 (def jp-export-demand
   "Japan-origin used-vehicle export demand, calendar 2025. Secondary
   compilation (JUMV), not a live 財務省 extract. `:in-table?` is whether
   this actor will even attempt a quote. Russia is ranked but omitted
-  from `markets` because a sanctions list is operator input."
+  from `markets` because a sanctions list is operator input. South
+  Africa / Sri Lanka / Thailand are ranked but omitted until a sourced
+  used-import regime + duty row exists."
   {:as-of "2025"
    :source "JUMV used-vehicle export ranking (compilation of Japan export counts)"
    :source-url "https://jumv.net/basic_knowledge_usedcar_export/export_statistics/statistics?year_from=2025"
@@ -135,7 +148,18 @@
           {:rank 5 :iso :ke :units 77286 :in-table? true
            :note "KS 1515 の 8年（初度登録年）。QISJ CoR。関税は未掲載。"}
           {:rank 6 :iso :nz :units 71633 :in-table? true
-           :note "関税 0% + GST 15%。NZTA entry certification / MPI。"}]})
+           :note "関税 0% + GST 15%。NZTA entry certification / MPI。"}
+          {:rank 7 :iso :mn :units 66469 :in-table? true
+           :note "年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。"}
+          {:rank 8 :iso :za :units 64555 :in-table? false
+           :omit-reason :used-import-restricted
+           :note "ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。"}
+          {:rank 9 :iso :lk :units 62335 :in-table? false
+           :omit-reason :duty-schedule-deferred
+           :note "2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。"}
+          {:rank 10 :iso :th :units 48927 :in-table? false
+           :omit-reason :used-import-banned
+           :note "商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。"}]})
 
 (def denied-destinations
   "ISO user-assigned `:zz`. A real sanctions list is an operator input
@@ -145,24 +169,26 @@
 (def jpy-per-unit
   "JPY per 1 unit of listing currency. Fixture, not a live FX feed.
   KES/TZS are omitted: East-Africa landed cost stays uncomputable.
-  CLP is sub-1 (0.16) so `to-jpy`/`from-jpy` use double, not integer quot."
+  CLP/MNT are sub-1 so `to-jpy`/`from-jpy` use double, not integer quot."
   {:jpy 1 :usd 150 :eur 165 :gbp 190 :aud 100 :aed 41 :nzd 90 :cad 110 :sgd 112
-   :clp 0.16})
+   :clp 0.16 :mnt 0.044})
 
 (def duty-bps-by-dest
   "MFN passenger-car (HS 8703) duty in basis points. `nil` = no row.
   KE/TZ have no row — TRA/KRA schedules are not invented.
   CL 600 is the general 6% arancel when an exception admits the vehicle;
-  ZOFRI re-export zeroes Chilean duty in `landed-cost`, not in this table."
+  ZOFRI re-export zeroes Chilean duty in `landed-cost`, not in this table.
+  MN 500 is the 5% customs duty; automobile excise (age × cc) is a documented
+  gap — dealer/IAM/old-law tables disagree, so it is not invented."
   {:jp 0 :us 250 :de 1000 :gb 1000 :au 500 :ae 500 :nz 0 :ca 620 :fr 1000
-   :sg nil :ke nil :tz nil :cl 600})
+   :sg nil :ke nil :tz nil :cl 600 :mn 500})
 
 (def vat-bps-by-dest
   "GST/VAT/消費税. US federal has none; state sales tax is a documented
   gap, not zeroed silently — `:us` vat-bps 0 with `:vat-gap :state-tax`.
   `nil` = uncomputable (Singapore ARF/OMV; Kenya/Tanzania schedules)."
   {:jp 1000 :us 0 :de 1900 :gb 2000 :au 1000 :ae 500 :nz 1500 :ca 500 :fr 2000
-   :sg nil :ke nil :tz nil :cl 1900})
+   :sg nil :ke nil :tz nil :cl 1900 :mn 1000})
 
 (def freight-dest-minor
   "Ocean RoRo assumption, in *destination* whole currency units.
@@ -170,7 +196,7 @@
   a quote fails on duty/VAT nil, not on a missing corridor."
   {[:jp :au] 1800 [:jp :nz] 1600 [:jp :gb] 2200 [:jp :ae] 1400
    [:jp :us] 2500 [:jp :de] 2300 [:jp :ca] 2600 [:jp :fr] 2300 [:jp :sg] 1600
-   [:jp :ke] 1800 [:jp :tz] 1900 [:jp :cl] 2000000
+   [:jp :ke] 1800 [:jp :tz] 1900 [:jp :cl] 2000000 [:jp :mn] 7000000
    [:de :us] 1800 [:de :jp] 240000 [:de :gb] 900 [:de :fr] 400
    [:us :ca] 800 [:us :de] 1500 [:us :jp] 280000 [:us :gb] 1600
    [:gb :jp] 250000 [:gb :de] 700 [:gb :au] 2100
@@ -239,8 +265,9 @@
     (or (nil? a) (nil? b) (= a b))))
 
 (defn opposite-steering-policy
-  "Default `:incompatible`. Chile's JP volume is ZOFRI re-export of RHD,
-  so `:reexport-or-waiver` — not a silent LHD HARD on the actual corridor."
+  "Default `:incompatible`. Chile's JP volume is ZOFRI re-export of RHD
+  (`:reexport-or-waiver`). Mongolia accepts RHD with an import licence
+  (`:import-license`) — not a silent LHD HARD on the actual corridor."
   [dest]
   (or (:opposite-steering (market dest)) :incompatible))
 
@@ -249,6 +276,7 @@
   (or (not (cross-border? origin dest))
       (compatible-steering? origin dest)
       (true? (:steering-waiver? veh))
+      (= :import-license (opposite-steering-policy dest))
       (and (= :reexport-or-waiver (opposite-steering-policy dest))
            (true? (:zofri-reexport? veh)))))
 
@@ -364,7 +392,8 @@
         true
         (conj {:id :steering :label (str "ハンドル位置 " (name (or (:steering o) :n-a))
                                         " → " (name (or (:steering d) :n-a)))
-               :required? (not (compatible-steering? origin dest))}
+               :required? (and (not (compatible-steering? origin dest))
+                               (not= :import-license (opposite-steering-policy dest)))}
               {:id :destination-registration :label (str "登録地の検査（" (:inspection-name d) "）")
                :required? true})))))
 
@@ -430,8 +459,8 @@
          :landed/vat-base :duty-inclusive
          :landed/vat-gap (cond zofri? :onward-destination-duty
                                (= dest :us) :state-tax)
-         :landed/duty-gap (when (and (= dest :cl) (not zofri?))
-                            :luxury-displacement)
+         :landed/duty-gap (cond (and (= dest :cl) (not zofri?)) :luxury-displacement
+                                (= dest :mn) :excise-age-engine)
          :landed/total-minor total
          :landed/conserved? (= total (+ cif-dest duty vat))
          :landed/estimate? true
