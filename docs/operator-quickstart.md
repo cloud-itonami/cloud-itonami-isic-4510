@@ -20,10 +20,12 @@ cd cloud-itonami-isic-4510
 ## 2. Run tests
 
 ```bash
-clojure -M:test
+clojure -M:dev:test
+clojure -M:dev:render-html   # regenerates docs/index.html + docs/samples/operator-console.html
 ```
 
-Expect green if maturity is `unknown`. Fix failures before operating.
+Expect green. Fix failures before operating. The product face is a
+fragment SPA (`#search` / `#v/<vin>` / `#operator`).
 
 ## 3. Open the product face
 
