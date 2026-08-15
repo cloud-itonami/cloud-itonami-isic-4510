@@ -11,23 +11,32 @@
                                 (still approval-only).
     Phase 3  supervised auto  — governor-clean, high-confidence
                                 `:vehicle/list`/`:sale/confirm` may
-                                auto-commit.
+                                auto-commit. Money-adjacent ops
+                                (`:escrow/capture`, `:escrow/propose-release`,
+                                `:payout/bind`, `:x402/unlock`) are in
+                                `:writes` but never in `:auto`.
 
-  `:dispute/request` is deliberately NEVER a member of any phase's `:auto`
-  set, at any phase.")
+  `:dispute/request` and money-adjacent ops are NEVER members of any
+  phase's `:auto` set. The governor also always-escalates the money ops.")
 
 (def read-ops  #{:disclosure/query})
-(def write-ops #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit})
+(def write-ops #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit
+                 :scan/record :escrow/open :escrow/capture :escrow/propose-release
+                 :custody/transfer :custody/handover :payout/bind :x402/unlock})
 
 (def phases
   {0 {:label "read-only"          :writes #{}
                                    :auto #{}}
-   1 {:label "assisted-listing"   :writes #{:vehicle/list :inquiry/submit}
+   1 {:label "assisted-listing"   :writes #{:vehicle/list :inquiry/submit :scan/record}
                                    :auto #{}}
-   2 {:label "assisted-sale"      :writes #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit}
+   2 {:label "assisted-sale"      :writes #{:vehicle/list :sale/confirm :dispute/request
+                                            :inquiry/submit :scan/record :escrow/open
+                                            :custody/transfer :custody/handover}
                                    :auto #{}}
-   3 {:label "supervised-auto"    :writes #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit}
-                                   :auto #{:vehicle/list :sale/confirm :inquiry/submit}}})
+   3 {:label "supervised-auto"    :writes write-ops
+                                   :auto #{:vehicle/list :sale/confirm :inquiry/submit
+                                           :scan/record :escrow/open
+                                           :custody/transfer :custody/handover}}})
 
 (def default-phase
   "The phase used when `context` carries no :phase at all, AND the fallback

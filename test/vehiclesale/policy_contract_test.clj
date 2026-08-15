@@ -5,6 +5,7 @@
   leaves exactly one ledger fact."
   (:require [clojure.test :refer [deftest is testing]]
             [langgraph.graph :as g]
+            [vehiclesale.commerce :as commerce]
             [vehiclesale.store :as store]
             [vehiclesale.operation :as op]))
 
@@ -218,3 +219,73 @@
                      {:actor-id "b-1" :actor-role :buyer :tenant "tenant-basic" :phase 3})]
     (is (= :commit (get-in res [:state :disposition])))
     (is (= "JP-200" (:vin (store/inquiry db "inq-JP-200"))))))
+
+(deftest jp-short-scan-listing-is-held
+  (let [[db actor] (fresh)
+        seed (store/vehicle db "JP-500")
+        res (exec-op actor "scan-short"
+                     (merge seed {:op :vehicle/list :subject "JP-500" :source jp-airis
+                                  :odometer 120000})
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:scan-coverage-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest jp-expired-shaken-sale-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "shaken"
+                     {:op :sale/confirm :subject "JP-300" :vin "JP-300"
+                      :lien-cleared? true :repair-history-disclosed? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:shaken-validity-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest x402-unlock-without-payer-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "x402"
+                     {:op :x402/unlock :subject "JP-100" :vin "JP-100"
+                      :resource :scan-pack}
+                     {:actor-id "b-1" :actor-role :buyer :tenant "tenant-basic" :phase 3})]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:x402-receipt-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest broken-escrow-plan-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "plan"
+                     {:op :escrow/open :subject "JP-100" :vin "JP-100"
+                      :buyer-id "buyer-demo"
+                      :plan {:plan/gross-yen 100 :plan/commission-yen 50
+                             :plan/seller-payout-yen 10 :plan/conserved? false}}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:escrow-conservation-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest unverified-seller-payout-blocks-escrow-open
+  (let [[db actor] (fresh)
+        res (exec-op actor "payout"
+                     {:op :escrow/open :subject "JP-500" :vin "JP-500"
+                      :buyer-id "buyer-demo"}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:payout-destination-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest release-without-capture-handover-or-execution-claim-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "rel"
+                     {:op :escrow/propose-release :subject "JP-100" :vin "JP-100"
+                      :escrow-id "esc-missing" :already-transferred? true}
+                     officer-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (let [basis (-> (store/ledger db) first :basis set)]
+      (is (contains? basis :funds-not-arrived-gate))
+      (is (contains? basis :custody-handover-gate))
+      (is (contains? basis :scope-exclusion-gate)))))
+
+(deftest conserved-escrow-open-commits
+  (let [[db actor] (fresh)
+        res (exec-op actor "esc-ok"
+                     {:op :escrow/open :subject "JP-100" :vin "JP-100"
+                      :buyer-id "buyer-demo"}
+                     agent-p3)]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (= :open (:status (store/escrow db "esc-JP-100"))))
+    (is (commerce/conserved? (:plan (store/escrow db "esc-JP-100"))))))

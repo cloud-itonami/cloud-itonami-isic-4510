@@ -14,12 +14,16 @@
             [jp-go-dds.page :as page]
             [jp-go-dds.tokens :as tokens]
             [langgraph.graph :as g]
+            [vehiclesale.body :as body]
             [vehiclesale.catalog :as catalog]
+            [vehiclesale.commerce :as commerce]
             [vehiclesale.operation :as op]
             [vehiclesale.policy :as policy]
-            [vehiclesale.store :as store]))
+            [vehiclesale.store :as store]
+            [vehiclesale.x402 :as x402]))
 
 (def ^:private dealer {:actor-id "da-1" :actor-role :dealer-agent :phase 3})
+(def ^:private officer {:actor-id "to-1" :actor-role :title-officer :phase 3})
 (def ^:private buyer {:actor-id "b-1" :actor-role :buyer :tenant "tenant-basic" :phase 3})
 
 (def jp-airis
@@ -98,9 +102,49 @@
            {:op :inquiry/submit :subject "JP-ghost" :vin "JP-ghost"
             :buyer-id "buyer-demo" :body "この車の現車確認はできますか" :inquiry-id "inq-ghost"}
            buyer)
-    ;; JP listing commit ( legit 古物商 + AIRIS )
+    ;; HARD: 必須カメラ角不足 (JP-500 seed は :front のみ)
+    (exec! actor "short-scan"
+           (jp-list "JP-500" {:odometer 120000})
+           dealer)
+    ;; HARD: 車検切れ成約
+    (exec! actor "expired-shaken"
+           {:op :sale/confirm :subject "JP-300" :vin "JP-300"
+            :lien-cleared? true :repair-history-disclosed? true}
+           dealer)
+    ;; HARD: x402 レシートが導出できない (payer 欠落)
+    (exec! actor "x402-nopayer"
+           {:op :x402/unlock :subject "JP-100" :vin "JP-100"
+            :resource :scan-pack}
+           buyer)
+    ;; HARD: 精算プランが保存則を満たさない
+    (exec! actor "bad-plan"
+           {:op :escrow/open :subject "JP-100" :vin "JP-100"
+            :buyer-id "buyer-demo"
+            :plan {:plan/gross-yen 100 :plan/commission-yen 50
+                   :plan/seller-payout-yen 10 :plan/conserved? false}}
+           dealer)
+    ;; HARD: 未検証の払出先 (デモ自動車札幌)
+    (exec! actor "unverified-payout"
+           {:op :escrow/open :subject "JP-500" :vin "JP-500"
+            :buyer-id "buyer-demo"}
+           dealer)
+    ;; HARD: キャプチャ無し + 未納車 + 送金実行の主張
+    (exec! actor "release-too-soon"
+           {:op :escrow/propose-release :subject "JP-100" :vin "JP-100"
+            :escrow-id "esc-missing" :already-transferred? true}
+           officer)
+    ;; JP listing commit ( legit 古物商 + AIRIS + 完了スキャン )
     (exec! actor "jp-list"
            (jp-list "JP-100" {:odometer 32100})
+           dealer)
+    ;; conserved escrow + 預かり更新 (認可のみ。送金しない)
+    (exec! actor "esc-open"
+           {:op :escrow/open :subject "JP-200" :vin "JP-200"
+            :buyer-id "buyer-demo"}
+           dealer)
+    (exec! actor "custody-lot"
+           {:op :custody/transfer :subject "JP-200" :vin "JP-200"
+            :status :at-lot :holder "デモオート大阪"}
            dealer)
     ;; buyer inquiry commit
     (exec! actor "jp-inq"
@@ -146,6 +190,9 @@
                   ".listing-card.is-hidden{display:none}"
                   ".spec-dl{display:grid;grid-template-columns:8rem 1fr;gap:0.25rem 1rem}"
                   ".spec-dl dt{color:var(--color-neutral-solid-gray-600)}"
+                  ".scan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(8rem,1fr));gap:0.5rem;margin:0.75rem 0}"
+                  ".scan-cell{padding:0.5rem;border:1px solid var(--color-neutral-solid-gray-200);font-size:0.875rem}"
+                  ".scan-cell.is-missing{opacity:0.55}"
                   ".filter-row{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0 0 1rem}"
                   ".filter-row label{display:flex;flex-direction:column;font-size:0.875rem;gap:0.25rem}"
                   ".muted{color:var(--color-neutral-solid-gray-600)}"
@@ -172,15 +219,46 @@
       (str (:year c) " · " (:mileage c) " · " (:prefecture c))]
      [:p {:class "meta"}
       (str (:body c) " · " (:fuel c) " · " (:repair-history c))]
+     [:p {:class "meta"}
+      (str "車検 " (:inspection c) " · 維持費概算 " (:annual-cost c)
+           (if (:scan-complete? c) " · スキャン完了" " · スキャン不足"))]
      [:p {:class "meta"} (:dealer c)]]))
 
 (defn- spec-row [k v]
   (when v
     (list [:dt k] [:dd (str v)])))
 
-(defn- detail-view [listing]
+(defn- scan-cells [listing]
+  (let [present (body/present-angles (:scan listing))]
+    (map (fn [angle]
+           [:div {:class (str "scan-cell" (when-not (contains? present angle) " is-missing"))}
+            [:div (get body/angle-labels angle (name angle))]
+            [:div {:class "muted"}
+             (if (contains? present angle) "撮影済み（デモCID）" "未撮影")]])
+         (sort body/required-angles))))
+
+(defn- x402-rows []
+  (mapv (fn [{:keys [id usd description]}]
+          [(name id) (str "$" usd " USDC") description])
+        x402/resources))
+
+(defn- cost-rows [est]
+  (when est
+    [["自動車税" (catalog/yen (:automobile-tax-yen est))]
+     ["重量税（年割）" (catalog/yen (:weight-tax-yen est))]
+     ["燃料" (catalog/yen (:fuel-yen est))]
+     ["車検償却" (catalog/yen (:shaken-yen est))]
+     ["自賠責（年割）" (catalog/yen (:compulsory-insurance-yen est))]
+     ["任意保険（仮定）" (catalog/yen (:voluntary-insurance-yen est))]
+     ["合計（概算）" (catalog/yen (:total-yen est))]]))
+
+(defn- detail-view [listing db]
   (let [c (catalog/card listing)
-        vin (:vin listing)]
+        vin (:vin listing)
+        spec (:body-spec listing)
+        cust (store/custody db vin)
+        esc (first (filter #(= vin (:vin %)) (store/all-escrows db)))
+        plan (when-let [g (:price listing)] (commerce/plan g))]
     [:section {:class "view" :id (str "view-" vin) :data-view (str "v/" vin)}
      (dds/heading 2 (:title c) {:size "32"})
      [:p {:class "price"} (:price c)]
@@ -190,14 +268,34 @@
       (spec-row "地域" (:prefecture c))
       (spec-row "ボディ" (:body c))
       (spec-row "燃料" (:fuel c))
-      (spec-row "車検" (:inspection c))
+      (spec-row "車検満了" (:inspection c))
       (spec-row "修復歴" (:repair-history c))
+      (spec-row "ドア / 定員" (when spec (str (:doors spec) " / " (:seats spec))))
+      (spec-row "駆動" (:drive spec))
+      (spec-row "車両重量" (:weight spec))
+      (spec-row "寸法" (:size spec))
       (spec-row "販売店" (:dealer listing))
       (spec-row "古物商許可" (:kobutsusho-license listing))
+      (spec-row "預かり" (some-> cust :status name))
+      (spec-row "エスクロー" (or (some-> esc :status name) "未開設"))
       (spec-row "出品ID" vin)]
+     (dds/heading 3 "カメラスキャン" {:size "24"})
+     (into [:div {:class "scan-grid"}] (scan-cells listing))
+     [:p {:class "muted"}
+      "CID はデモラベル（bafkdemo-…）。実バイトは取得しない。"]
+     (dds/heading 3 "年間維持費（概算）" {:size "24"})
+     (dds/table {:headers ["費目" "円/年"]
+                 :rows (cost-rows (:running-cost listing))})
+     [:p {:class "muted"} (get-in listing [:running-cost :assumption])]
+     (dds/heading 3 "情報面 x402（車両代金ではない）" {:size "24"})
+     (dds/table {:headers ["資源" "価格" "内容"] :rows (x402-rows)})
+     [:p {:class "muted"}
+      (str "facilitator " (get-in x402/facilitator [:host])
+           " · 1 seller 精算プラン 手数料 "
+           (:plan/commission-bps plan) " bps · execute? false")]
      (dds/button "販売店へ問い合わせる（デモ）" {:href "#operator" :type :solid-fill})
      [:p {:class "muted"}
-      "問い合わせは VehicleSaleGovernor を通る。決済・エスクロー・車両の引き渡しはこの actor の外。"]
+      "問い合わせ・エスクロー開設・預かり更新は VehicleSaleGovernor を通る。この actor は送金しない（認可と証拠のみ）。"]
      (dds/button "在庫一覧へ戻る" {:href "#search" :type :outline})]))
 
 (defn- search-view [jp-listings]
@@ -250,23 +348,45 @@
           [(str inquiry-id) (str vin) (str buyer-id) (str body) (name (or status :n-a))])
         (store/all-inquiries db)))
 
+(defn- escrow-rows [db]
+  (mapv (fn [{:keys [escrow-id vin status gross-yen plan]}]
+          [(str escrow-id) (str vin) (name (or status :n-a))
+           (str (or gross-yen (get plan :plan/gross-yen)))
+           (str (get plan :plan/seller-payout-yen))])
+        (store/all-escrows db)))
+
+(defn- custody-rows [db]
+  (mapv (fn [v]
+          (let [c (store/custody db (:vin v))]
+            [(:vin v) (or (some-> c :status name) "—") (str (:holder c))]))
+        (filter #(= :jp (:jurisdiction %)) (store/all-vehicles db))))
+
 (defn- operator-view [db]
   (let [holds (hold-facts db)
         ledger (store/ledger db)
-        inquiries (inquiry-rows db)]
+        inquiries (inquiry-rows db)
+        escrows (escrow-rows db)]
     [:section {:class "view" :id "view-operator" :data-view "operator"}
      (dds/heading 2 "出品コンソール（Governor）" {:size "32"})
      [:p {:class "muted"}
-      "VehicleSale-LLM の提案は VehicleSaleGovernor を通ったものだけが台帳に残る。HARD hold は人間も覆せない。"]
+      "VehicleSale-LLM の提案は VehicleSaleGovernor を通ったものだけが台帳に残る。HARD hold は人間も覆せない。マネー操作は常に人間承認。送金はしない。"]
      (dds/heading 3 "HARD hold（この run）" {:size "24"})
      (dds/table {:headers ["操作" "対象" "規則" "詳細"]
                  :rows (hold-rows holds)
                  :row-header? true})
-     (dds/heading 3 "問い合わせ（lead。決済ではない）" {:size "24"})
+     (dds/heading 3 "問い合わせ（lead）" {:size "24"})
      (if (seq inquiries)
        (dds/table {:headers ["ID" "車両" "buyer-id" "本文" "状態"]
                    :rows inquiries})
        [:p {:class "muted"} "問い合わせはまだ無い。"])
+     (dds/heading 3 "エスクロー（認可。execute? false）" {:size "24"})
+     (if (seq escrows)
+       (dds/table {:headers ["ID" "VIN" "状態" "総額" "出品者払出"]
+                   :rows escrows})
+       [:p {:class "muted"} "エスクローはまだ無い。"])
+     (dds/heading 3 "車両の預かり" {:size "24"})
+     (dds/table {:headers ["VIN" "状態" "ホルダ"]
+                 :rows (custody-rows db)})
      (dds/heading 3 "監査台帳" {:size "24"})
      (dds/table {:headers ["事実" "操作" "対象" "根拠"]
                  :rows (ledger-rows ledger)})]))
@@ -323,7 +443,7 @@ document.addEventListener('DOMContentLoaded', function(){
         jp (catalog/search all {})]
     (page/->page
      {:title "中古車マーケット — cloud-itonami-isic-4510"
-      :description "ISIC 4510 の中古車出品検索。VehicleSaleGovernor が出品・成約・問い合わせを検閲する。"
+      :description "ISIC 4510 の中古車出品検索。VehicleSaleGovernor が出品・成約・エスクロー認可・預かりを検閲する。"
       :lang "ja"
       :css (slurp (io/resource "jp_go_dds/dds.css"))
       :app-css app-css
@@ -332,12 +452,12 @@ document.addEventListener('DOMContentLoaded', function(){
       [:header
        (dds/heading 1 "中古車マーケット" {:size "45"})
        [:p {:class "muted"}
-        "cloud-itonami-isic-4510 · 出品・開示・成約決定。決済と車両の保管は持たない。"]]
+        "cloud-itonami-isic-4510 · 出品・開示・成約決定・エスクロー認可。送金はしない。"]]
       [:nav {:class "site-nav" :aria-label "ページ内"}
        (dds/button "在庫を探す" {:href "#search" :type :solid-fill})
        (dds/button "出品コンソール" {:href "#operator" :type :outline})]
       (search-view jp)
-      (into [:div] (map detail-view jp))
+      (into [:div] (map #(detail-view % db) jp))
       (operator-view db)
       [:footer
        [:p {:class "muted"}

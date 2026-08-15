@@ -62,3 +62,19 @@
     (let [[_ res] (run ph dispute-req officer)]
       (is (not= :commit (get-in res [:state :disposition]))
           (str "phase " ph " must not auto-commit a dispute")))))
+
+(deftest money-ops-never-auto-commit-at-phase-3
+  (let [buyer {:actor-id "b-1" :actor-role :buyer :tenant "tenant-basic"}
+        [_ r-x402] (run 3 {:op :x402/unlock :subject "JP-100" :vin "JP-100"
+                           :resource :scan-pack :payer "0xBUYERDEMO"
+                           :receipt-id "r-ok"}
+                        buyer)
+        [_ r-pay] (run 3 {:op :payout/bind :subject "デモモータース東京"
+                          :seller-id "デモモータース東京"
+                          :destination {:verified? true :account "acct_demo_tokyo"
+                                        :rail :stripe-separate}}
+                       officer)]
+    (is (= :interrupted (:status r-x402)))
+    (is (= :interrupted (:status r-pay)))
+    (is (= :money-rail (-> r-x402 :state :audit last :reason)))
+    (is (= :money-rail (-> r-pay :state :audit last :reason)))))

@@ -18,7 +18,11 @@
       (is (false? (:active? (store/dmv-license s "dmv-demo-expired"))))
       (is (= 9 (count (store/all-vehicles s))))
       (is (= "トヨタ" (:make (store/vehicle s "JP-100"))))
-      (is (= :tokyo (:prefecture (store/vehicle s "JP-100")))))))
+      (is (= :tokyo (:prefecture (store/vehicle s "JP-100"))))
+      (is (map? (:scan (store/vehicle s "JP-100"))))
+      (is (true? (:verified? (store/payout s "デモモータース東京"))))
+      (is (false? (:verified? (store/payout s "デモ自動車札幌"))))
+      (is (= :at-dealer (:status (store/custody s "JP-100")))))))
 
 (deftest write-and-ledger-parity
   (doseq [[label s] (backends)]
@@ -44,6 +48,19 @@
         (is (= "JP-200" (:vin (store/inquiry s "inq-1"))))
         (store/commit-record! s {:effect :vehicle-sale-confirm :value {:vin "JP-400"}})
         (is (= :sold (:listed-status (store/vehicle s "JP-400")))))
+      (testing "escrow / custody / x402 / scan blobs round-trip"
+        (store/commit-record! s {:effect :escrow-upsert
+                                 :value {:escrow-id "esc-x" :vin "JP-200" :status :open}})
+        (is (= :open (:status (store/escrow s "esc-x"))))
+        (store/commit-record! s {:effect :custody-upsert
+                                 :value {:vin "JP-200" :status :at-lot :holder "lot"}})
+        (is (= :at-lot (:status (store/custody s "JP-200"))))
+        (store/commit-record! s {:effect :x402-receipt-upsert
+                                 :value {:receipt-id "r-1" :vin "JP-200" :resource :scan-pack}})
+        (is (= :scan-pack (:resource (store/x402-receipt s "r-1"))))
+        (store/commit-record! s {:effect :scan-upsert
+                                 :value {:vin "JP-500" :scan {:angles {:front "x" :rear "y"}}}})
+        (is (= "y" (get-in (store/vehicle s "JP-500") [:scan :angles :rear]))))
       (testing "ledger is append-only and order-preserving"
         (store/append-ledger! s {:op :a :disposition :commit})
         (store/append-ledger! s {:op :b :disposition :hold})
