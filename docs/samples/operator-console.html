@@ -2747,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', function(){
       </nav>
       <section class="view is-active" id="view-search" data-view="search">
         <h2 class="dads-heading" data-size="32">中古車を探す</h2>
-        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / ケニア / NZ）から適格判定する。架空の在庫です。通関申告はしません。</p>
+        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ）から適格判定する。架空の在庫です。通関申告はしません。</p>
         <h3 class="dads-heading" data-size="24">日本からの中古車輸出需要（2025）</h3>
         <div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -2782,10 +2782,10 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>除外: lhd-corridor-deferred</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>見積対象</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -2803,7 +2803,7 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
           </tbody></table>
         </div>
-        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリは LHD のため次スライス。ロシアは載せない。</p>
+        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。ロシアは載せない。</p>
         <form class="filter-row" id="search-form" action="#" onsubmit="return false;">
           <label>キーワード<input type="search" id="q" name="q" placeholder="メーカー・車種・国・地域"></label>
           <label>メーカー<span class="dads-select"><span class="dads-select__control">
@@ -2824,6 +2824,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <select class="dads-select__select" data-size="md" id="country" name="country">
               <option value="" disabled selected>国（すべて）</option>
               <option value="fr">フランス</option>
+              <option value="cl">チリ</option>
               <option value="au">オーストラリア</option>
               <option value="gb">イギリス</option>
               <option value="ca">カナダ</option>
@@ -2845,6 +2846,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="" disabled selected>輸出先（日本ハブの需要順）</option>
               <option value="ae">アラブ首長国連邦</option>
               <option value="tz">タンザニア</option>
+              <option value="cl">チリ</option>
               <option value="ke">ケニア</option>
               <option value="nz">ニュージーランド</option>
             </select>
@@ -3061,11 +3063,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -3122,6 +3124,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>C$1,203</td>
               <td>C$1,031</td>
               <td>C$21,652</td>
+            </tr>
+            <tr>
+              <td>cl</td>
+              <td>870323</td>
+              <td>CLP 13,562,500</td>
+              <td>6.0%</td>
+              <td>CLP 813,750</td>
+              <td>CLP 2,731,487</td>
+              <td>CLP 17,107,737</td>
             </tr>
             <tr>
               <td>de</td>
@@ -3354,11 +3365,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -3415,6 +3426,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>C$713</td>
               <td>C$611</td>
               <td>C$12,833</td>
+            </tr>
+            <tr>
+              <td>cl</td>
+              <td>870322</td>
+              <td>CLP 8,125,000</td>
+              <td>6.0%</td>
+              <td>CLP 487,500</td>
+              <td>CLP 1,636,375</td>
+              <td>CLP 10,248,875</td>
             </tr>
             <tr>
               <td>de</td>
@@ -3647,11 +3667,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -3708,6 +3728,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>C$882</td>
               <td>C$755</td>
               <td>C$15,873</td>
+            </tr>
+            <tr>
+              <td>cl</td>
+              <td>870323</td>
+              <td>CLP 10,000,000</td>
+              <td>6.0%</td>
+              <td>CLP 600,000</td>
+              <td>CLP 2,014,000</td>
+              <td>CLP 12,614,000</td>
             </tr>
             <tr>
               <td>de</td>
@@ -3940,11 +3969,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -4001,6 +4030,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>C$414</td>
               <td>C$355</td>
               <td>C$7,459</td>
+            </tr>
+            <tr>
+              <td>cl</td>
+              <td>870323</td>
+              <td>CLP 4,812,500</td>
+              <td>6.0%</td>
+              <td>CLP 288,750</td>
+              <td>CLP 969,237</td>
+              <td>CLP 6,070,487</td>
             </tr>
             <tr>
               <td>de</td>
@@ -4197,11 +4235,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -4414,11 +4452,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -4608,11 +4646,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -4829,11 +4867,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -5023,11 +5061,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>4</td>
-              <td>cl (cl)</td>
+              <td>チリ (cl)</td>
               <td>83,523</td>
-              <td>市場表に無い: lhd-corridor-deferred</td>
-              <td>—</td>
-              <td>LHD 市場。今回は RHD 需要（KE/TZ/NZ/AE）を先にする。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>本土の中古乗用車輸入は Ley 18.483 で禁止。数量の本体は ZOFRI（イキケ）再輸出。関税 6%+IVA 19% は例外が認めたときだけ。</td>
             </tr>
             <tr>
               <td>5</td>
@@ -5308,6 +5346,12 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>JP-100</td>
               <td>import-regime-gate</td>
               <td>中古輸入制度に該当しない: dest=:au regime=:restricted-sevs-raws source=DITRDCA used import: SEVS, RAWS, or 25-year vehicle</td>
+            </tr>
+            <tr>
+              <th class="dads-table__row-header" scope="row">quote</th>
+              <td>JP-100</td>
+              <td>import-regime-gate</td>
+              <td>中古輸入制度に該当しない: dest=:cl regime=:restricted-mainland-used source=Ley 18.483 Art. 21: used passenger import into mainland Chile is prohibited. Documented exceptions: ZOFRI re-export, Aduana partida 00.33 returning resident, historic 50+ years.</td>
             </tr>
             <tr>
               <th class="dads-table__row-header" scope="row">list</th>
@@ -5613,6 +5657,18 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>confirm</td>
               <td>JP-100</td>
               <td>import-regime-gate</td>
+            </tr>
+            <tr>
+              <td>policy-hold</td>
+              <td>quote</td>
+              <td>JP-100</td>
+              <td>import-regime-gate</td>
+            </tr>
+            <tr>
+              <td>committed</td>
+              <td>quote</td>
+              <td>JP-100</td>
+              <td>vin, dest-country</td>
             </tr>
             <tr>
               <td>policy-hold</td>

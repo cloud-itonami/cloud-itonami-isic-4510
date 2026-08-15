@@ -36,7 +36,7 @@
    23. tariff-conservation-gate
    24. hs-adjudication-gate
    25. import-age-gate           (KS 1515 YoR cap)
-   26. import-regime-gate        (AU SEVS/RAWS / used-import restricted)
+   26. import-regime-gate        (AU SEVS/RAWS / Chile Ley 18.483)
    27. scope-exclusion-gate"
 
   (:require [clojure.set :as set]
@@ -322,9 +322,17 @@
           :detail (str "未納車のままエスクロー解放: vin=" vin
                        " custody=" (:status rec))}]))))
 
+(def ^:private veh-overlay-keys
+  "Proposal flags that change eligibility / landed-cost without being
+  stored on the listing. ZOFRI re-export is a destination mode, not a
+  VIN attribute."
+  [:zofri-reexport? :returning-resident? :sevs-eligible? :raws?
+   :steering-waiver?])
+
 (defn- veh-of [proposal st]
-  (or (store/vehicle st (get-in proposal [:value :vin]))
-      (:value proposal)))
+  (merge (or (store/vehicle st (get-in proposal [:value :vin]))
+             (:value proposal))
+         (select-keys (:value proposal) veh-overlay-keys)))
 
 (defn- dest-of [proposal]
   (or (get-in proposal [:value :dest-country])
@@ -369,8 +377,7 @@
           origin (border/origin-of veh)
           dest (dest-of proposal)]
       (when (and dest (border/cross-border? origin dest)
-                 (not (border/compatible-steering? origin dest))
-                 (not (get-in proposal [:value :steering-waiver?])))
+                 (not (border/steering-ok? veh origin dest)))
         [{:rule :steering-incompatible-gate
           :detail (str "ハンドル位置が市場と不一致: " origin " → " dest)}]))))
 
@@ -450,9 +457,10 @@
                        " source=" (:source el))}]))))
 
 (defn- import-regime-violations
-  "Used-import restricted destinations (AU SEVS/RAWS) cannot be quoted
-  as if a passenger car simply pays duty. Vintage / SEVS / RAWS are the
-  only documented exceptions in the fixture."
+  "Used-import restricted destinations cannot be quoted as if a passenger
+  car simply pays duty. AU: SEVS / RAWS / 25-year. CL: Ley 18.483
+  mainland ban; ZOFRI re-export / returning-resident / 50-year historic
+  are the documented exceptions."
   [{:keys [op]} proposal st]
   (when (contains? #{:sale/confirm :border/quote} op)
     (let [veh (veh-of proposal st)

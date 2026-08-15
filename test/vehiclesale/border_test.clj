@@ -82,10 +82,51 @@
   (let [ru (first (filter #(= :ru (:iso %)) (:rows border/jp-export-demand)))]
     (is (false? (:in-table? ru)))
     (is (= :sanctions-operator-input (:omit-reason ru))))
-  (is (= [:ae :tz :ke :nz] (border/jp-demand-dests))))
+  (is (= [:ae :tz :cl :ke :nz] (border/jp-demand-dests))))
 
 (deftest corridor-board-shows-kenya-age-and-missing-duty
   (let [row (first (filter #(= :ke (:iso %)) (border/corridor-board (veh "JP-500"))))]
     (is (false? (:eligible? row)))
     (is (= :age-ineligible (:eligibility-reason row)))
     (is (false? (:landed-computable? row)))))
+
+(deftest chile-mainland-used-import-is-restricted
+  (is (= :restricted-mainland-used (get-in border/markets [:cl :used-import])))
+  (is (= :used-import-restricted (:reason (border/eligibility (prius) :cl))))
+  (is (true? (:landed/computable? (border/landed-cost (prius) :cl))))
+  (is (= 600 (:landed/duty-bps (border/landed-cost (prius) :cl))))
+  (is (= :luxury-displacement (:landed/duty-gap (border/landed-cost (prius) :cl))))
+  (is (not (border/compatible-steering? :jp :cl)))
+  (is (false? (border/steering-ok? (prius) :jp :cl))))
+
+(deftest chile-zofri-reexport-is-the-volume-exception
+  (let [zofri (assoc (prius) :zofri-reexport? true)
+        q (border/landed-cost zofri :cl)]
+    (is (true? (border/eligible? zofri :cl)))
+    (is (true? (border/steering-ok? zofri :jp :cl)))
+    (is (true? (:landed/computable? q)))
+    (is (zero? (:landed/duty-bps q)))
+    (is (zero? (:landed/vat-bps q)))
+    (is (= :onward-destination-duty (:landed/vat-gap q)))
+    (is (border/conserved-quote? q))))
+
+(deftest chile-returning-resident-clears-regime-not-steering
+  (let [ret (assoc (prius) :returning-resident? true)]
+    (is (= :steering-incompatible (:reason (border/eligibility ret :cl))))
+    (is (true? (border/regime-ok? ret :cl)))))
+
+(deftest chile-historic-50-year-clears-regime
+  (let [old {:jurisdiction :jp :country :jp :year 1970 :steering-waiver? true}]
+    (is (true? (border/eligible? old :cl)))))
+
+(deftest chile-age-cap-is-not-invented
+  (is (nil? (get-in border/markets [:cl :max-age-years])))
+  (is (nil? (border/min-first-registration-year :cl))))
+
+(deftest procedure-labels-ley-18483
+  (is (some #{:ley-18483} (map :id (border/procedure :jp :cl)))))
+
+(deftest clp-fx-is-fractional-and-conserved
+  (is (= 1850000 (border/to-jpy 11562500 :clp)))
+  (is (= 11562500 (border/from-jpy 1850000 :clp)))
+  (is (border/conserved-quote? (border/landed-cost (prius) :cl))))

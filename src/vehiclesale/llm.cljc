@@ -58,7 +58,8 @@
   them against the SSoT."
   [_db {:keys [vin lien-cleared? odometer-disclosure-statement?
                repair-history-disclosed? dest-country export-certified?
-               import-permit? steering-waiver? quote] :as req}]
+               import-permit? steering-waiver? quote
+               zofri-reexport? returning-resident?] :as req}]
   {:summary   (str "sale confirm: " vin)
    :rationale "リーエン解消/走行距離開示証明/修復歴開示/国境手続の申告を伝達のみ。検証は governor が行う。"
    :cites     [:vin]
@@ -72,6 +73,8 @@
                 (contains? req :export-certified?) (assoc :export-certified? export-certified?)
                 (contains? req :import-permit?) (assoc :import-permit? import-permit?)
                 (contains? req :steering-waiver?) (assoc :steering-waiver? steering-waiver?)
+                (contains? req :zofri-reexport?) (assoc :zofri-reexport? zofri-reexport?)
+                (contains? req :returning-resident?) (assoc :returning-resident? returning-resident?)
                 quote (assoc :quote quote))
    :confidence 0.9})
 
@@ -207,8 +210,11 @@
      :confidence 0.85}))
 
 (defn- propose-border-quote
-  [db {:keys [vin dest-country quote hs]}]
-  (let [veh (store/vehicle db vin)
+  [db {:keys [vin dest-country quote hs zofri-reexport? returning-resident?]}]
+  (let [stored (store/vehicle db vin)
+        veh (cond-> stored
+              (true? zofri-reexport?) (assoc :zofri-reexport? true)
+              (true? returning-resident?) (assoc :returning-resident? true))
         dest dest-country
         derived (when (and veh dest) (border/landed-cost veh dest))
         q (or quote derived)
@@ -218,8 +224,12 @@
      :cites     [:vin :dest-country]
      :source    nil
      :effect    :border-quote-upsert
-     :value     {:quote-id id :vin vin :dest-country dest
-                 :quote q :hs (or hs (:hs q))}
+     :value     (cond-> {:quote-id id :vin vin :dest-country dest
+                         :quote q :hs (or hs (:hs q))}
+                  (contains? #{true false} zofri-reexport?)
+                  (assoc :zofri-reexport? zofri-reexport?)
+                  (contains? #{true false} returning-resident?)
+                  (assoc :returning-resident? returning-resident?))
      :confidence 0.9}))
 
 (defn- propose-export
