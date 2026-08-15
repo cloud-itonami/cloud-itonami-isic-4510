@@ -82,7 +82,7 @@
   (let [ru (first (filter #(= :ru (:iso %)) (:rows border/jp-export-demand)))]
     (is (false? (:in-table? ru)))
     (is (= :sanctions-operator-input (:omit-reason ru))))
-  (is (= [:ae :tz :cl :ke :nz :mn] (border/jp-demand-dests))))
+    (is (= [:ae :tz :cl :ke :nz :mn :za] (border/jp-demand-dests))))
 
 (deftest corridor-board-shows-kenya-age-and-missing-duty
   (let [row (first (filter #(= :ke (:iso %)) (border/corridor-board (veh "JP-500"))))]
@@ -157,12 +157,56 @@
         za (first (filter #(= :za (:iso %)) rows))
         lk (first (filter #(= :lk (:iso %)) rows))
         th (first (filter #(= :th (:iso %)) rows))]
-    (is (false? (:in-table? za)))
-    (is (= :used-import-restricted (:omit-reason za)))
+    (is (true? (:in-table? za)))
+    (is (nil? (:omit-reason za)))
     (is (false? (:in-table? lk)))
     (is (= :duty-schedule-deferred (:omit-reason lk)))
     (is (false? (:in-table? th)))
     (is (= :used-import-banned (:omit-reason th)))
-    (is (not (border/known-market? :za)))
+    (is (border/known-market? :za))
     (is (not (border/known-market? :lk)))
     (is (not (border/known-market? :th)))))
+
+(deftest south-africa-itac-restricts-ordinary-jp-passenger
+  (is (= :restricted-itac-used (get-in border/markets [:za :used-import])))
+  (is (= :used-import-restricted (:reason (border/eligibility (prius) :za))))
+  (is (true? (:landed/computable? (border/landed-cost (prius) :za))))
+  (is (= 2500 (:landed/duty-bps (border/landed-cost (prius) :za))))
+  (is (= 1500 (:landed/vat-bps (border/landed-cost (prius) :za))))
+  (is (= :ad-valorem-excise (:landed/duty-gap (border/landed-cost (prius) :za))))
+  (is (= :atv-uplift (:landed/vat-gap (border/landed-cost (prius) :za))))
+  (is (border/compatible-steering? :jp :za))
+  (is (true? (border/steering-ok? (prius) :jp :za)))
+  (is (border/conserved-quote? (border/landed-cost (prius) :za))))
+
+(deftest south-africa-rib-transit-is-the-volume-exception
+  (let [rib (assoc (prius) :rib-transit? true)
+        q (border/landed-cost rib :za)]
+    (is (true? (border/eligible? rib :za)))
+    (is (true? (:landed/computable? q)))
+    (is (zero? (:landed/duty-bps q)))
+    (is (zero? (:landed/vat-bps q)))
+    (is (= :onward-destination-duty (:landed/vat-gap q)))
+    (is (border/conserved-quote? q))))
+
+(deftest south-africa-returning-resident-clears-regime-and-steering-matches
+  (let [ret (assoc (prius) :returning-resident? true)]
+    (is (true? (border/eligible? ret :za)))
+    (is (true? (border/regime-ok? ret :za)))))
+
+(deftest south-africa-vintage-40-year-clears-regime
+  (let [old {:jurisdiction :jp :country :jp :year 1980}]
+    (is (true? (border/eligible? old :za)))))
+
+(deftest south-africa-age-cap-is-not-invented
+  (is (nil? (get-in border/markets [:za :max-age-years])))
+  (is (nil? (border/min-first-registration-year :za)))
+  (is (= :unverified (get-in border/markets [:za :age-basis]))))
+
+(deftest procedure-labels-itac-permit
+  (is (some #{:itac-permit} (map :id (border/procedure :jp :za))))
+  (is (some #{:pre-shipment-inspection} (map :id (border/procedure :jp :za)))))
+
+(deftest zar-fx-is-conserved
+  (is (= 1850000 (border/to-jpy 231250 :zar)))
+  (is (= 231250 (border/from-jpy 1850000 :zar))))

@@ -36,7 +36,7 @@
    23. tariff-conservation-gate
    24. hs-adjudication-gate
    25. import-age-gate           (KS 1515 YoR cap)
-   26. import-regime-gate        (AU SEVS/RAWS / Chile Ley 18.483)
+   26. import-regime-gate        (AU SEVS/RAWS / Chile Ley 18.483 / ZA ITAC)
    27. scope-exclusion-gate"
 
   (:require [clojure.set :as set]
@@ -327,7 +327,7 @@
   stored on the listing. ZOFRI re-export is a destination mode, not a
   VIN attribute."
   [:zofri-reexport? :returning-resident? :sevs-eligible? :raws?
-   :steering-waiver?])
+   :steering-waiver? :rib-transit?])
 
 (defn- veh-of [proposal st]
   (merge (or (store/vehicle st (get-in proposal [:value :vin]))
@@ -460,7 +460,8 @@
   "Used-import restricted destinations cannot be quoted as if a passenger
   car simply pays duty. AU: SEVS / RAWS / 25-year. CL: Ley 18.483
   mainland ban; ZOFRI re-export / returning-resident / 50-year historic
-  are the documented exceptions."
+  are the documented exceptions. ZA: ITAC permit-only; RIB transit /
+  returning-resident / 40-year vintage are the documented exceptions."
   [{:keys [op]} proposal st]
   (when (contains? #{:sale/confirm :border/quote} op)
     (let [veh (veh-of proposal st)

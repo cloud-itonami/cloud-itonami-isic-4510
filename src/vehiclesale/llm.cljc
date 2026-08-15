@@ -59,7 +59,7 @@
   [_db {:keys [vin lien-cleared? odometer-disclosure-statement?
                repair-history-disclosed? dest-country export-certified?
                import-permit? steering-waiver? quote
-               zofri-reexport? returning-resident?] :as req}]
+               zofri-reexport? returning-resident? rib-transit?] :as req}]
   {:summary   (str "sale confirm: " vin)
    :rationale "リーエン解消/走行距離開示証明/修復歴開示/国境手続の申告を伝達のみ。検証は governor が行う。"
    :cites     [:vin]
@@ -75,6 +75,7 @@
                 (contains? req :steering-waiver?) (assoc :steering-waiver? steering-waiver?)
                 (contains? req :zofri-reexport?) (assoc :zofri-reexport? zofri-reexport?)
                 (contains? req :returning-resident?) (assoc :returning-resident? returning-resident?)
+                (contains? req :rib-transit?) (assoc :rib-transit? rib-transit?)
                 quote (assoc :quote quote))
    :confidence 0.9})
 
@@ -210,11 +211,12 @@
      :confidence 0.85}))
 
 (defn- propose-border-quote
-  [db {:keys [vin dest-country quote hs zofri-reexport? returning-resident?]}]
+  [db {:keys [vin dest-country quote hs zofri-reexport? returning-resident? rib-transit?]}]
   (let [stored (store/vehicle db vin)
         veh (cond-> stored
               (true? zofri-reexport?) (assoc :zofri-reexport? true)
-              (true? returning-resident?) (assoc :returning-resident? true))
+              (true? returning-resident?) (assoc :returning-resident? true)
+              (true? rib-transit?) (assoc :rib-transit? true))
         dest dest-country
         derived (when (and veh dest) (border/landed-cost veh dest))
         q (or quote derived)
@@ -229,7 +231,9 @@
                   (contains? #{true false} zofri-reexport?)
                   (assoc :zofri-reexport? zofri-reexport?)
                   (contains? #{true false} returning-resident?)
-                  (assoc :returning-resident? returning-resident?))
+                  (assoc :returning-resident? returning-resident?)
+                  (contains? #{true false} rib-transit?)
+                  (assoc :rib-transit? rib-transit?))
      :confidence 0.9}))
 
 (defn- propose-export

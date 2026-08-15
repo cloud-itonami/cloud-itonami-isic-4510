@@ -2747,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', function(){
       </nav>
       <section class="view is-active" id="view-search" data-view="search">
         <h2 class="dads-heading" data-size="32">中古車を探す</h2>
-        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル）から適格判定する。架空の在庫です。通関申告はしません。</p>
+        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル / 南ア）から適格判定する。架空の在庫です。通関申告はしません。</p>
         <h3 class="dads-heading" data-size="24">日本からの中古車輸出需要（2025）</h3>
         <div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -2810,10 +2810,10 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>除外: used-import-restricted</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>見積対象</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -2831,7 +2831,7 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
           </tbody></table>
         </div>
-        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。南ア・タイは制度上閉じる。ロシアは載せない。</p>
+        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。南アの中古輸入は ITAC 許可制（ダーバン RIB 通過が数量の本体）。タイは制度上閉じる。ロシアは載せない。</p>
         <form class="filter-row" id="search-form" action="#" onsubmit="return false;">
           <label>キーワード<input type="search" id="q" name="q" placeholder="メーカー・車種・国・地域"></label>
           <label>メーカー<span class="dads-select"><span class="dads-select__control">
@@ -2861,6 +2861,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="us">アメリカ合衆国</option>
               <option value="sg">シンガポール</option>
               <option value="nz">ニュージーランド</option>
+              <option value="za">南アフリカ</option>
               <option value="mn">モンゴル</option>
               <option value="de">ドイツ</option>
               <option value="ke">ケニア</option>
@@ -2879,6 +2880,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="ke">ケニア</option>
               <option value="nz">ニュージーランド</option>
               <option value="mn">モンゴル</option>
+              <option value="za">南アフリカ</option>
             </select>
             <svg class="dads-select__chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 17L3 8L4 7L12 15L20 7L21 8L12 17Z" fill="currentcolor"></path>
@@ -3125,11 +3127,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -3258,6 +3260,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>$370</td>
               <td>$0</td>
               <td>$15,203</td>
+            </tr>
+            <tr>
+              <td>za</td>
+              <td>870323</td>
+              <td>R266,250</td>
+              <td>25.0%</td>
+              <td>R66,562</td>
+              <td>R49,921</td>
+              <td>R382,733</td>
             </tr>
           </tbody></table>
         </div><div class="dads-table">
@@ -3468,11 +3479,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -3601,6 +3612,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>$225</td>
               <td>$0</td>
               <td>$9,258</td>
+            </tr>
+            <tr>
+              <td>za</td>
+              <td>870322</td>
+              <td>R157,500</td>
+              <td>25.0%</td>
+              <td>R39,375</td>
+              <td>R29,531</td>
+              <td>R226,406</td>
             </tr>
           </tbody></table>
         </div><div class="dads-table">
@@ -3811,11 +3831,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -3944,6 +3964,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>$275</td>
               <td>$0</td>
               <td>$11,308</td>
+            </tr>
+            <tr>
+              <td>za</td>
+              <td>870323</td>
+              <td>R195,000</td>
+              <td>25.0%</td>
+              <td>R48,750</td>
+              <td>R36,562</td>
+              <td>R280,312</td>
             </tr>
           </tbody></table>
         </div><div class="dads-table">
@@ -4154,11 +4183,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>概算可</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -4287,6 +4316,15 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>$137</td>
               <td>$0</td>
               <td>$5,637</td>
+            </tr>
+            <tr>
+              <td>za</td>
+              <td>870323</td>
+              <td>R91,250</td>
+              <td>25.0%</td>
+              <td>R22,812</td>
+              <td>R17,109</td>
+              <td>R131,171</td>
             </tr>
           </tbody></table>
         </div><div class="dads-table">
@@ -4461,11 +4499,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -4710,11 +4748,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -4936,11 +4974,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -5189,11 +5227,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -5415,11 +5453,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>8</td>
-              <td>za (za)</td>
+              <td>南アフリカ (za)</td>
               <td>64,555</td>
-              <td>市場表に無い: used-import-restricted</td>
-              <td>—</td>
-              <td>ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。</td>
+              <td>used-import-restricted</td>
+              <td>missing-freight-corridor</td>
+              <td>ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。</td>
             </tr>
             <tr>
               <td>9</td>
@@ -5706,6 +5744,12 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>JP-100</td>
               <td>import-regime-gate</td>
               <td>中古輸入制度に該当しない: dest=:cl regime=:restricted-mainland-used source=Ley 18.483 Art. 21: used passenger import into mainland Chile is prohibited. Documented exceptions: ZOFRI re-export, Aduana partida 00.33 returning resident, historic 50+ years.</td>
+            </tr>
+            <tr>
+              <th class="dads-table__row-header" scope="row">quote</th>
+              <td>JP-100</td>
+              <td>import-regime-gate</td>
+              <td>中古輸入制度に該当しない: dest=:za regime=:restricted-itac-used source=gov.za + ITAC used/second-hand vehicle guidelines: used import is permit-only. Documented exceptions: returning resident / immigrant PR, vintage 40+, racing / inherited / specially designed. Commercial resale is not a path. JUMV volume is treated as Durban Removal-in-Bond transit, not mainland used-import.</td>
             </tr>
             <tr>
               <th class="dads-table__row-header" scope="row">list</th>
@@ -6023,6 +6067,18 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>quote</td>
               <td>JP-100</td>
               <td>vin, dest-country</td>
+            </tr>
+            <tr>
+              <td>committed</td>
+              <td>quote</td>
+              <td>JP-100</td>
+              <td>vin, dest-country</td>
+            </tr>
+            <tr>
+              <td>policy-hold</td>
+              <td>quote</td>
+              <td>JP-100</td>
+              <td>import-regime-gate</td>
             </tr>
             <tr>
               <td>committed</td>
