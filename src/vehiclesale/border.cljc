@@ -123,15 +123,27 @@
         :age-note "No sourced age ban. Dealer blogs describe higher excise on older cars, not a HARD cap."
         :opposite-steering :import-license
         :steering-note "LHD country. RHD Japanese imports are the volume path; a Mongolian import licence is a procedure label, not a silent steering HARD."
-        :psi-label "radiation check (Japan-origin)"}})
+        :psi-label "radiation check (Japan-origin)"}
+   :za {:iso :za :label "南アフリカ" :currency :zar :steering :rhd
+        :dealer-license-required? true :inspection-required-on-sale? false
+        :inspection-name "roadworthy / eNaTIS"
+        :export-doc "export certificate / logbook"
+        :homologation "ITAC import permit / NRCS Letter of Authority"
+        :used-import :restricted-itac-used
+        :used-import-source "gov.za + ITAC used/second-hand vehicle guidelines: used import is permit-only. Documented exceptions: returning resident / immigrant PR, vintage 40+, racing / inherited / specially designed. Commercial resale is not a path. JUMV volume is treated as Durban Removal-in-Bond transit, not mainland used-import."
+        :age-basis :unverified
+        :vintage-years 40
+        :re-export-hub? true
+        :steering-note "RHD country. JP steering matches. Do not invent an age cap; ITAC is permit-category, not year-of-registration."
+        :psi-label "NRCS Letter of Authority"}})
 
 (def jp-export-demand
   "Japan-origin used-vehicle export demand, calendar 2025. Secondary
   compilation (JUMV), not a live 財務省 extract. `:in-table?` is whether
   this actor will even attempt a quote. Russia is ranked but omitted
-  from `markets` because a sanctions list is operator input. South
-  Africa / Sri Lanka / Thailand are ranked but omitted until a sourced
-  used-import regime + duty row exists."
+  from `markets` because a sanctions list is operator input. Sri Lanka
+  / Thailand stay omitted until a sourced used-import regime + duty
+  row exists. South Africa is in-table as ITAC fail-closed + RIB transit."
   {:as-of "2025"
    :source "JUMV used-vehicle export ranking (compilation of Japan export counts)"
    :source-url "https://jumv.net/basic_knowledge_usedcar_export/export_statistics/statistics?year_from=2025"
@@ -151,9 +163,8 @@
            :note "関税 0% + GST 15%。NZTA entry certification / MPI。"}
           {:rank 7 :iso :mn :units 66469 :in-table? true
            :note "年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。"}
-          {:rank 8 :iso :za :units 64555 :in-table? false
-           :omit-reason :used-import-restricted
-           :note "ITAC の中古輸入は原則不可。数量は通過・例外の可能性。関税は捏造しない。"}
+          {:rank 8 :iso :za :units 64555 :in-table? true
+           :note "ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。"}
           {:rank 9 :iso :lk :units 62335 :in-table? false
            :omit-reason :duty-schedule-deferred
            :note "2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。"}
@@ -171,7 +182,7 @@
   KES/TZS are omitted: East-Africa landed cost stays uncomputable.
   CLP/MNT are sub-1 so `to-jpy`/`from-jpy` use double, not integer quot."
   {:jpy 1 :usd 150 :eur 165 :gbp 190 :aud 100 :aed 41 :nzd 90 :cad 110 :sgd 112
-   :clp 0.16 :mnt 0.044})
+   :clp 0.16 :mnt 0.044 :zar 8})
 
 (def duty-bps-by-dest
   "MFN passenger-car (HS 8703) duty in basis points. `nil` = no row.
@@ -179,16 +190,19 @@
   CL 600 is the general 6% arancel when an exception admits the vehicle;
   ZOFRI re-export zeroes Chilean duty in `landed-cost`, not in this table.
   MN 500 is the 5% customs duty; automobile excise (age × cc) is a documented
-  gap — dealer/IAM/old-law tables disagree, so it is not invented."
+  gap — dealer/IAM/old-law tables disagree, so it is not invented.
+  ZA 2500 is the general 25% HS 8703 rate when an exception admits the
+  vehicle; RIB transit zeroes South African duty in `landed-cost`, not
+  in this table. Ad valorem excise is a documented gap."
   {:jp 0 :us 250 :de 1000 :gb 1000 :au 500 :ae 500 :nz 0 :ca 620 :fr 1000
-   :sg nil :ke nil :tz nil :cl 600 :mn 500})
+   :sg nil :ke nil :tz nil :cl 600 :mn 500 :za 2500})
 
 (def vat-bps-by-dest
   "GST/VAT/消費税. US federal has none; state sales tax is a documented
   gap, not zeroed silently — `:us` vat-bps 0 with `:vat-gap :state-tax`.
   `nil` = uncomputable (Singapore ARF/OMV; Kenya/Tanzania schedules)."
   {:jp 1000 :us 0 :de 1900 :gb 2000 :au 1000 :ae 500 :nz 1500 :ca 500 :fr 2000
-   :sg nil :ke nil :tz nil :cl 1900 :mn 1000})
+   :sg nil :ke nil :tz nil :cl 1900 :mn 1000 :za 1500})
 
 (def freight-dest-minor
   "Ocean RoRo assumption, in *destination* whole currency units.
@@ -197,6 +211,7 @@
   {[:jp :au] 1800 [:jp :nz] 1600 [:jp :gb] 2200 [:jp :ae] 1400
    [:jp :us] 2500 [:jp :de] 2300 [:jp :ca] 2600 [:jp :fr] 2300 [:jp :sg] 1600
    [:jp :ke] 1800 [:jp :tz] 1900 [:jp :cl] 2000000 [:jp :mn] 7000000
+   [:jp :za] 35000
    [:de :us] 1800 [:de :jp] 240000 [:de :gb] 900 [:de :fr] 400
    [:us :ca] 800 [:us :de] 1500 [:us :jp] 280000 [:us :gb] 1600
    [:gb :jp] 250000 [:gb :de] 700 [:gb :au] 2100
@@ -302,7 +317,7 @@
     (or (nil? min-y) (and yor (>= yor min-y)))))
 
 (defn vintage-unrestricted?
-  "AU 25-year path. Not a SEVS listing."
+  "AU 25-year / CL 50-year / ZA 40-year collector paths. Not a SEVS listing."
   [veh dest]
   (let [n (:vintage-years (market dest))]
     (boolean (and n (:year veh) (<= (:year veh) (- clock-year n))))))
@@ -318,6 +333,10 @@
           (vintage-unrestricted? veh dest))
       :restricted-mainland-used
       (or (true? (:zofri-reexport? veh))
+          (true? (:returning-resident? veh))
+          (vintage-unrestricted? veh dest))
+      :restricted-itac-used
+      (or (true? (:rib-transit? veh))
           (true? (:returning-resident? veh))
           (vintage-unrestricted? veh dest))
       false)))
@@ -389,6 +408,10 @@
         (conj {:id :ley-18483
                :label "本土の中古乗用車輸入は Ley 18.483 で禁止。ZOFRI再輸出 / 帰国者 00.33 / 50年歴史車が例外。"
                :required? true})
+        (= :restricted-itac-used (:used-import d))
+        (conj {:id :itac-permit
+               :label "中古輸入は ITAC 許可制。帰国者・永住移民 / 40年ヴィンテージ / 競技・相続等が例外。商業転売は不可。ダーバン RIB は通過。"
+               :required? true})
         true
         (conj {:id :steering :label (str "ハンドル位置 " (name (or (:steering o) :n-a))
                                         " → " (name (or (:steering d) :n-a)))
@@ -409,8 +432,10 @@
         dest-ccy (get-in markets [dest :currency])
         origin-ccy (listing-currency veh)
         zofri? (and (= dest :cl) (true? (:zofri-reexport? veh)))
-        duty-bps (if zofri? 0 (get duty-bps-by-dest dest ::missing))
-        vat-bps (if zofri? 0 (get vat-bps-by-dest dest ::missing))
+        rib? (and (= dest :za) (true? (:rib-transit? veh)))
+        transit-zero? (or zofri? rib?)
+        duty-bps (if transit-zero? 0 (get duty-bps-by-dest dest ::missing))
+        vat-bps (if transit-zero? 0 (get vat-bps-by-dest dest ::missing))
         freight (if (cross-border? origin dest)
                   (get freight-dest-minor [origin dest] ::missing)
                   0)
@@ -457,10 +482,12 @@
          :landed/vat-bps vat-bps
          :landed/vat-minor vat
          :landed/vat-base :duty-inclusive
-         :landed/vat-gap (cond zofri? :onward-destination-duty
-                               (= dest :us) :state-tax)
+         :landed/vat-gap (cond transit-zero? :onward-destination-duty
+                               (= dest :us) :state-tax
+                               (= dest :za) :atv-uplift)
          :landed/duty-gap (cond (and (= dest :cl) (not zofri?)) :luxury-displacement
-                                (= dest :mn) :excise-age-engine)
+                                (= dest :mn) :excise-age-engine
+                                (and (= dest :za) (not rib?)) :ad-valorem-excise)
          :landed/total-minor total
          :landed/conserved? (= total (+ cif-dest duty vat))
          :landed/estimate? true

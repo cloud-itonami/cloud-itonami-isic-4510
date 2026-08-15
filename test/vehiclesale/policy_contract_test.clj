@@ -444,3 +444,23 @@
     (is (= :commit (get-in res [:state :disposition])))
     (is (= 500 (get-in q [:quote :landed/duty-bps])))
     (is (= :excise-age-engine (get-in q [:quote :landed/duty-gap])))))
+
+(deftest south-africa-itac-holds-ordinary-quote
+  (let [[db actor] (fresh)
+        res (exec-op actor "za-itac"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :za}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:import-regime-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest south-africa-rib-quote-commits-with-zero-sa-duty
+  (let [[db actor] (fresh)
+        res (exec-op actor "za-rib"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :za :rib-transit? true}
+                     agent-p3)
+        q (store/border-quote db "bq-JP-100-za")]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (zero? (get-in q [:quote :landed/duty-bps])))
+    (is (= :onward-destination-duty (get-in q [:quote :landed/vat-gap])))))

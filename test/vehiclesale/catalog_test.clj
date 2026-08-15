@@ -89,3 +89,6 @@
     (is (contains? vins "JP-100"))
     (is (contains? vins "JP-500"))
     (is (contains? vins "DE-100"))))
+
+(deftest export-dest-za-drops-ordinary-passenger
+  (is (empty? (catalog/search (listings) {:export-dest :za}))))
