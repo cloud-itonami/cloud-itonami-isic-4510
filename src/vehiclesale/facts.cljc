@@ -47,7 +47,27 @@
     :name "Operator-registered 電子車検証 / AIRIS credential (JP title equivalent)"
     :class :operator-licensed-shakensho-feed
     :access :operator-licensed
-    :url "https://www.denshishakensho-portal.mlit.go.jp/"}])
+    :url "https://www.denshishakensho-portal.mlit.go.jp/"}
+   {:id :operator-licensed-eu-type-feed
+    :name "Operator-registered EU type-approval / COC credential"
+    :class :operator-licensed-eu-type-feed
+    :access :operator-licensed
+    :url nil}
+   {:id :operator-licensed-dvla-feed
+    :name "Operator-registered UK DVLA / MOT credential"
+    :class :operator-licensed-dvla-feed
+    :access :operator-licensed
+    :url nil}
+   {:id :operator-licensed-ppsr-feed
+    :name "Operator-registered Australia PPSR / state dealer credential"
+    :class :operator-licensed-ppsr-feed
+    :access :operator-licensed
+    :url nil}
+   {:id :operator-licensed-uae-rta-feed
+    :name "Operator-registered UAE RTA / GSO credential"
+    :class :operator-licensed-uae-rta-feed
+    :access :operator-licensed
+    :url nil}])
 
 (def allowed-source-classes
   "Closed set — a class not in `catalog` (e.g. :inference, :seller-assertion,
@@ -64,16 +84,19 @@
    :free-public-sources (into #{} (map :id (filter #(not= :operator-licensed (:access %)) catalog)))
    :note (str "R0 scope: NMVTIS one-report-per-VIN (US federal, free) + NHTSA "
               "recalls (US federal, free) + MLIT リコール・不具合情報 (JP, free) "
-              "+ 2 structural operator-licensed feed classes (US DMV title/lien "
-              "and JP 電子車検証/AIRIS). Extend only by appending a real, "
-              "citable catalog entry or a real registered feed credential — "
-              "never fabricate either.")})
+              "+ structural operator-licensed feed classes (US DMV, JP AIRIS, "
+              "EU type-approval, UK DVLA, AU PPSR, UAE RTA). Not a live "
+              "tariff database — duty rows live in vehiclesale.border fixtures. "
+              "Extend only by appending a real, citable catalog entry or a "
+              "real registered feed credential — never fabricate either.")})
 
 (defn class-allowed? [source-class]
   (contains? allowed-source-classes source-class))
 
 (defn licensed-dmv-class? [source-class]
-  (contains? #{:operator-licensed-dmv-feed :operator-licensed-shakensho-feed}
+  (contains? #{:operator-licensed-dmv-feed :operator-licensed-shakensho-feed
+               :operator-licensed-eu-type-feed :operator-licensed-dvla-feed
+               :operator-licensed-ppsr-feed :operator-licensed-uae-rta-feed}
              source-class))
 
 (def odometer-exempt-model-year-age

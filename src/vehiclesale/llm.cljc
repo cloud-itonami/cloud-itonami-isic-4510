@@ -20,6 +20,7 @@
                :cljs [cljs.reader :as edn])
             [clojure.string :as str]
             [langchain.model :as model]
+            [vehiclesale.border :as border]
             [vehiclesale.commerce :as commerce]
             [vehiclesale.store :as store]
             [vehiclesale.x402 :as x402]))
@@ -29,7 +30,8 @@
    :jurisdiction :prefecture :mileage :body-type :kobutsusho-license
    :repair-history? :inspection-expires :dealer :grade :fuel
    :displacement-cc :color :listed-status :scan :weight-kg :fuel-economy-km-l
-   :doors :seats :drive :length-mm :width-mm :height-mm])
+   :doors :seats :drive :length-mm :width-mm :height-mm
+   :catalog? :currency :steering :country :dealer-license :region])
 
 (defn- propose-list
   "Listing normalization — the LLM only normalizes/validates the caller-
@@ -55,16 +57,22 @@
   through untouched — it is the governor's job, not the LLM's, to verify
   them against the SSoT."
   [_db {:keys [vin lien-cleared? odometer-disclosure-statement?
-               repair-history-disclosed?] :as req}]
+               repair-history-disclosed? dest-country export-certified?
+               import-permit? steering-waiver? quote] :as req}]
   {:summary   (str "sale confirm: " vin)
-   :rationale "リーエン解消/走行距離開示証明/修復歴開示の申告を伝達のみ。検証は governor が行う。"
+   :rationale "リーエン解消/走行距離開示証明/修復歴開示/国境手続の申告を伝達のみ。検証は governor が行う。"
    :cites     [:vin]
    :source    nil
    :effect    :vehicle-sale-confirm
    :value     (cond-> {:vin vin :lien-cleared? lien-cleared?
                        :odometer-disclosure-statement? odometer-disclosure-statement?}
                 (contains? req :repair-history-disclosed?)
-                (assoc :repair-history-disclosed? repair-history-disclosed?))
+                (assoc :repair-history-disclosed? repair-history-disclosed?)
+                dest-country (assoc :dest-country dest-country)
+                (contains? req :export-certified?) (assoc :export-certified? export-certified?)
+                (contains? req :import-permit?) (assoc :import-permit? import-permit?)
+                (contains? req :steering-waiver?) (assoc :steering-waiver? steering-waiver?)
+                quote (assoc :quote quote))
    :confidence 0.9})
 
 (defn- propose-inquiry
@@ -198,6 +206,45 @@
                  :challenge (x402/challenge resource vin)}
      :confidence 0.85}))
 
+(defn- propose-border-quote
+  [db {:keys [vin dest-country quote hs]}]
+  (let [veh (store/vehicle db vin)
+        dest dest-country
+        derived (when (and veh dest) (border/landed-cost veh dest))
+        q (or quote derived)
+        id (str "bq-" vin "-" (name (or dest :na)))]
+    {:summary   (str "border quote: " id)
+     :rationale "関税・VAT の再導出可能な概算。通関申告ではない。"
+     :cites     [:vin :dest-country]
+     :source    nil
+     :effect    :border-quote-upsert
+     :value     {:quote-id id :vin vin :dest-country dest
+                 :quote q :hs (or hs (:hs q))}
+     :confidence 0.9}))
+
+(defn- propose-export
+  [_db {:keys [vin origin certified?]}]
+  {:summary   (str "export certify: " vin)
+   :rationale "輸出証明の記録。申告の代行ではない。"
+   :cites     [:vin]
+   :source    nil
+   :effect    :export-cert-upsert
+   :value     {:vin vin :origin origin :certified? (boolean certified?)
+               :as-of "2026-08"}
+   :confidence 0.7})
+
+(defn- propose-import
+  [_db {:keys [vin dest-country permitted? hs]}]
+  {:summary   (str "import permit: " vin)
+   :rationale "輸入許可の記録。適合証明の代行ではない。"
+   :cites     [:vin]
+   :source    nil
+   :effect    :import-permit-upsert
+   :value     {:vin vin :dest-country dest-country
+               :permitted? (boolean permitted?) :hs hs
+               :as-of "2026-08"}
+   :confidence 0.7})
+
 (defn infer
   [db {:keys [op] :as request}]
   (case op
@@ -214,6 +261,9 @@
     :custody/handover         (propose-custody db (assoc request :status :handed-over))
     :payout/bind              (propose-payout-bind db request)
     :x402/unlock              (propose-x402 db request)
+    :border/quote             (propose-border-quote db request)
+    :export/certify           (propose-export db request)
+    :import/permit            (propose-import db request)
     {:summary "未対応の操作" :rationale (str op) :cites [] :source nil
      :effect :noop :confidence 0.0}))
 
@@ -232,11 +282,13 @@
        "キー: :summary :rationale :cites :source(nilも可) "
        ":effect(:listing-upsert|:vehicle-sale-confirm|:disclosure-serve|"
        ":inquiry-upsert|:correction-apply|:escrow-upsert|:custody-upsert|"
-       ":payout-upsert|:x402-receipt-upsert|:scan-upsert) "
+       ":payout-upsert|:x402-receipt-upsert|:scan-upsert|:border-quote-upsert|"
+       ":export-cert-upsert|:import-permit-upsert) "
        ":value :confidence(0..1)。\n"
        "重要: 出典を伴わない出品や、走行距離のロールバックは絶対に提案しては"
        "いけません。送金の実行(:stripe-transfer 等)を提案してはいけません。"
-       "リーエン解消・車検・スキャンカバレッジ・精算保存則の判定は"
+       "通関申告・HS 確定分類・関税率の捏造をしてはいけません。"
+       "リーエン解消・車検・スキャンカバレッジ・精算保存則・国境手続の判定は"
        "あなたの責務ではありません(governor が判定します)。"))
 
 (defn- facts-for [st {:keys [op subject vin]}]

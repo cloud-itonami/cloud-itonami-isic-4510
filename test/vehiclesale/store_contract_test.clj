@@ -16,13 +16,16 @@
       (is (= 32000 (:reading (store/odometer-latest s "vin-100"))))
       (is (true? (:active? (store/dmv-license s "dmv-demo-ca"))))
       (is (false? (:active? (store/dmv-license s "dmv-demo-expired"))))
-      (is (= 9 (count (store/all-vehicles s))))
+      (is (= 13 (count (store/all-vehicles s))))
       (is (= "トヨタ" (:make (store/vehicle s "JP-100"))))
       (is (= :tokyo (:prefecture (store/vehicle s "JP-100"))))
+      (is (true? (:catalog? (store/vehicle s "DE-100"))))
+      (is (= :eur (:currency (store/vehicle s "DE-100"))))
       (is (map? (:scan (store/vehicle s "JP-100"))))
       (is (true? (:verified? (store/payout s "デモモータース東京"))))
       (is (false? (:verified? (store/payout s "デモ自動車札幌"))))
-      (is (= :at-dealer (:status (store/custody s "JP-100")))))))
+      (is (= :at-dealer (:status (store/custody s "JP-100"))))
+      (is (= :at-dealer (:status (store/custody s "DE-100")))))))
 
 (deftest write-and-ledger-parity
   (doseq [[label s] (backends)]
@@ -61,6 +64,16 @@
         (store/commit-record! s {:effect :scan-upsert
                                  :value {:vin "JP-500" :scan {:angles {:front "x" :rear "y"}}}})
         (is (= "y" (get-in (store/vehicle s "JP-500") [:scan :angles :rear]))))
+      (testing "border artefacts round-trip"
+        (store/commit-record! s {:effect :export-cert-upsert
+                                 :value {:vin "JP-100" :certified? true :origin :jp}})
+        (is (true? (:certified? (store/export-cert s "JP-100"))))
+        (store/commit-record! s {:effect :import-permit-upsert
+                                 :value {:vin "JP-100" :permitted? true :dest-country :au}})
+        (is (true? (:permitted? (store/import-permit s "JP-100"))))
+        (store/commit-record! s {:effect :border-quote-upsert
+                                 :value {:quote-id "bq-1" :vin "JP-100" :dest-country :de}})
+        (is (= :de (:dest-country (store/border-quote s "bq-1")))))
       (testing "ledger is append-only and order-preserving"
         (store/append-ledger! s {:op :a :disposition :commit})
         (store/append-ledger! s {:op :b :disposition :hold})

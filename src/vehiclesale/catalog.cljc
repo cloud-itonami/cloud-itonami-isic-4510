@@ -6,10 +6,13 @@
   Write paths (`:vehicle/list`, `:sale/confirm`, `:inquiry/submit`) stay on
   the OperationActor.
 
-  Default marketplace slice is `:jurisdiction :jp`. US VIN demo rows remain
-  visible on the operator console; they are not this catalog's inventory."
+  Default marketplace slice is every `:catalog? true` unsold row, every
+  closed market. US `vin-*` operator rows stay off this face. Price caps
+  compare in JPY via `vehiclesale.border/to-jpy` so mixed currencies do
+  not silently compare 28,500 EUR against 1,000,000 JPY."
   (:require [clojure.string :as str]
             [vehiclesale.body :as body]
+            [vehiclesale.border :as border]
             [vehiclesale.running-cost :as cost]))
 
 (def prefectures
@@ -18,12 +21,19 @@
   {:tokyo "東京都" :osaka "大阪府" :aichi "愛知県"
    :fukuoka "福岡県" :hokkaido "北海道"})
 
+(def countries
+  (into {} (map (fn [[k v]] [k (:label v)]) border/markets)))
+
 (def body-types
   {:sedan "セダン" :hatch "ハッチバック" :suv "SUV"
    :minivan "ミニバン" :kei "軽自動車"})
 
 (def fuels
   {:hybrid "ハイブリッド" :gasoline "ガソリン" :diesel "ディーゼル" :ev "電気"})
+
+(def currency-prefix
+  {:jpy "¥" :usd "$" :eur "€" :gbp "£" :aud "A$" :aed "AED "
+   :nzd "NZ$" :cad "C$" :sgd "S$"})
 
 (defn grouped-int
   "Thousands-separated integer. Used for yen and for km."
@@ -44,17 +54,31 @@
   [n]
   (when n (str "¥" (grouped-int n))))
 
+(defn money
+  [n currency]
+  (when n
+    (str (get currency-prefix (or currency :jpy) "")
+         (grouped-int n))))
+
+(defn price-jpy
+  [veh]
+  (border/to-jpy (:price veh) (or (:currency veh) :jpy)))
+
 (defn hydrate
   "Join a vehicle row with its latest odometer and title record. Catalog
   search runs on this projection so mileage/lien are not a second lookup
-  at the call site."
+  at the call site. JP 自動車税 bands attach only to `:jp` rows."
   [veh odo title]
   (cond-> veh
     (and (nil? (:mileage veh)) (:reading odo)) (assoc :mileage (:reading odo))
     title (assoc :lien-status (if (:active? title) :active-lien :clear))
-    true (assoc :running-cost (cost/estimate veh)
-                :scan-complete? (body/scan-complete? (:scan veh))
-                :body-spec (body/describe veh))))
+    true (assoc :scan-complete? (body/scan-complete? (:scan veh))
+                :body-spec (body/describe veh)
+                :price-jpy (price-jpy veh)
+                :country-label (get countries
+                                    (or (:country veh) (:jurisdiction veh))
+                                    (some-> (or (:country veh) (:jurisdiction veh)) name)))
+    (= :jp (:jurisdiction veh)) (assoc :running-cost (cost/estimate veh))))
 
 (defn- includes-ci? [hay needle]
   (and (seq needle)
@@ -65,26 +89,30 @@
 (defn search
   "Filter `listings` (hydrated vehicle maps). Unknown / nil criteria are
   ignored. Sold rows (`:listed-status :sold`) are excluded unless
-  `:include-sold?` is true."
+  `:include-sold?` is true. Default inventory is `:catalog? true`."
   [listings {:keys [make prefecture year-min year-max price-max mileage-max
-                    body-type q include-sold? jurisdiction]
-             :or {jurisdiction :jp}}]
+                    body-type q include-sold? jurisdiction country]
+             :or {include-sold? false}}]
   (->> listings
-       (filter #(= jurisdiction (:jurisdiction %)))
+       (filter #(true? (:catalog? %)))
+       (filter #(or (nil? jurisdiction) (= jurisdiction (:jurisdiction %))))
+       (filter #(or (nil? country) (= country (or (:country %) (:jurisdiction %)))))
        (remove #(and (not include-sold?) (= :sold (:listed-status %))))
        (filter #(or (nil? make) (= make (:make %))))
        (filter #(or (nil? prefecture) (= prefecture (:prefecture %))))
        (filter #(or (nil? body-type) (= body-type (:body-type %))))
        (filter #(or (nil? year-min) (and (:year %) (>= (:year %) year-min))))
        (filter #(or (nil? year-max) (and (:year %) (<= (:year %) year-max))))
-       (filter #(or (nil? price-max) (and (:price %) (<= (:price %) price-max))))
+       (filter #(or (nil? price-max)
+                    (and (price-jpy %) (<= (price-jpy %) (long price-max)))))
        (filter #(or (nil? mileage-max) (and (:mileage %) (<= (:mileage %) mileage-max))))
        (filter #(or (nil? q) (empty? q)
                     (some (fn [field] (includes-ci? field q))
                           [(:make %) (:model %) (:grade %) (:dealer %)
-                           (get prefectures (:prefecture %))])))
+                           (get prefectures (:prefecture %))
+                           (get countries (or (:country %) (:jurisdiction %)))])))
        (sort-by (juxt (comp - #(or % 0) :year)
-                      #(or (:price %) 0M)
+                      #(or (price-jpy %) 0)
                       :vin))
        vec))
 
@@ -96,19 +124,24 @@
   the identity `:vin` so a view can address `#v/<vin>`."
   [{:keys [vin make model grade year mileage price prefecture body-type
            fuel inspection-expires repair-history? dealer listed-status
-           running-cost scan-complete?]}]
+           running-cost scan-complete? currency country-label jurisdiction]}]
   {:vin vin
    :title (str make " " model (when grade (str " " grade)))
    :year (str year "年")
    :mileage (when mileage (str (grouped-int mileage) " km"))
-   :price (yen price)
-   :prefecture (get prefectures prefecture (some-> prefecture name))
+   :price (money price currency)
+   :price-jpy (price-jpy {:price price :currency currency})
+   :prefecture (or (get prefectures prefecture)
+                   country-label
+                   (some-> prefecture name)
+                   (some-> jurisdiction name))
+   :country country-label
    :body (get body-types body-type (some-> body-type name))
    :fuel (get fuels fuel (some-> fuel name))
-   :inspection (or inspection-expires "車検情報なし")
+   :inspection (or inspection-expires "検査情報なし")
    :repair-history (if repair-history? "修復歴あり" "修復歴なし")
    :dealer dealer
    :sold? (= :sold listed-status)
-   :annual-cost (yen (:total-yen running-cost))
+   :annual-cost (when running-cost (yen (:total-yen running-cost)))
    :scan-complete? (boolean scan-complete?)
    :href (str "#v/" vin)})

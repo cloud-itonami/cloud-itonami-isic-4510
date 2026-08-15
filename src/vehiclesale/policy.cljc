@@ -8,28 +8,39 @@
   Sixteen HARD checks, in priority order. A human approver CANNOT override
   them. SOFT / always-escalate: confidence floor, salvage-title, dispute,
   and money-adjacent ops (`:escrow/capture`, `:escrow/propose-release`,
-  `:payout/bind`, `:x402/unlock`).
+  `:payout/bind`, `:x402/unlock`). Export/import certs always escalate
+  (filings-adjacent; this actor never files).
 
     1. rbac
     2. lien-clearance-gate
-    3. odometer-disclosure-gate
+    3. odometer-disclosure-gate   (US 49 USC only)
     4. source-provenance-gate
     5. licensed-disclosure
-    6. kobutsusho-license-gate
-    7. repair-history-disclosure-gate
-    8. inquiry-target-gate
-    9. scan-coverage-gate
-   10. shaken-validity-gate
-   11. x402-receipt-gate
-   12. escrow-conservation-gate
-   13. payout-destination-gate
-   14. funds-not-arrived-gate
-   15. custody-handover-gate
-   16. scope-exclusion-gate"
+    6. kobutsusho-license-gate    (JP)
+    7. dealer-license-gate        (non-JP markets that require a trade licence)
+    8. repair-history-disclosure-gate
+    9. inquiry-target-gate
+   10. scan-coverage-gate
+   11. shaken-validity-gate
+   12. x402-receipt-gate
+   13. escrow-conservation-gate
+   14. payout-destination-gate
+   15. funds-not-arrived-gate
+   16. custody-handover-gate
+   17. unknown-market-gate
+   18. denied-destination-gate
+   19. steering-incompatible-gate
+   20. export-certificate-gate
+   21. import-permit-gate
+   22. landed-uncomputable-gate
+   23. tariff-conservation-gate
+   24. hs-adjudication-gate
+   25. scope-exclusion-gate"
 
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [vehiclesale.body :as body]
+            [vehiclesale.border :as border]
             [vehiclesale.commerce :as commerce]
             [vehiclesale.facts :as facts]
             [vehiclesale.store :as store]
@@ -41,31 +52,42 @@
   "Closed set of HARD gates. A console that does not exercise every one of
   these is incomplete — `render-html/-main` refuses to write in that case."
   #{:rbac :lien-clearance-gate :odometer-disclosure-gate :source-provenance-gate
-    :licensed-disclosure :kobutsusho-license-gate
+    :licensed-disclosure :kobutsusho-license-gate :dealer-license-gate
     :repair-history-disclosure-gate :inquiry-target-gate
     :scan-coverage-gate :shaken-validity-gate :x402-receipt-gate
     :escrow-conservation-gate :payout-destination-gate
-    :funds-not-arrived-gate :custody-handover-gate :scope-exclusion-gate})
+    :funds-not-arrived-gate :custody-handover-gate
+    :unknown-market-gate :denied-destination-gate :steering-incompatible-gate
+    :export-certificate-gate :import-permit-gate :landed-uncomputable-gate
+    :tariff-conservation-gate :hs-adjudication-gate :scope-exclusion-gate})
 
 (def always-escalate-ops
   "Money-adjacent writes. Independently kept out of every phase `:auto` set."
   #{:escrow/capture :escrow/propose-release :payout/bind :x402/unlock})
 
+(def filings-escalate-ops
+  "Export/import artefacts. This actor never files; a human must confirm
+  the label. Never in `:auto`."
+  #{:export/certify :import/permit})
+
 (def allowed-effects
   #{:listing-upsert :vehicle-sale-confirm :disclosure-serve :inquiry-upsert
     :correction-apply :escrow-upsert :custody-upsert :payout-upsert
-    :x402-receipt-upsert :scan-upsert :noop})
+    :x402-receipt-upsert :scan-upsert :export-cert-upsert
+    :import-permit-upsert :border-quote-upsert :noop})
 
 (def confidence-floor 0.6)
 
 (def permissions
   "actor-role → set of operations it may perform."
   {:dealer-agent   #{:vehicle/list :sale/confirm :scan/record
-                     :escrow/open :custody/transfer :custody/handover}
+                     :escrow/open :custody/transfer :custody/handover
+                     :border/quote :export/certify}
    :title-officer  #{:vehicle/list :sale/confirm :dispute/request :scan/record
                      :escrow/open :escrow/capture :escrow/propose-release
-                     :payout/bind :custody/transfer :custody/handover}
-   :buyer          #{:disclosure/query :inquiry/submit :x402/unlock}})
+                     :payout/bind :custody/transfer :custody/handover
+                     :border/quote :export/certify :import/permit}
+   :buyer          #{:disclosure/query :inquiry/submit :x402/unlock :border/quote}})
 
 (def tier-columns
   "For `:disclosure/query` — the columns each licensed subscriber tier may
@@ -98,8 +120,10 @@
                        " lien-holder=" (:lien-holder rec))}]))))
 
 (defn- odometer-disclosure-violations
-  "`:vehicle/list` asserting a rollback reading, or `:sale/confirm` on a
-  non-exempt-age vehicle missing the disclosure statement, is HARD."
+  "`:vehicle/list` asserting a rollback reading (any market), or
+  `:sale/confirm` on a non-exempt US vehicle missing the 49 U.S.C.
+  Chapter 327 disclosure statement, is HARD. Non-US markets do not
+  inherit that federal form."
   [{:keys [op]} proposal st]
   (case op
     :vehicle/list
@@ -114,10 +138,10 @@
     :sale/confirm
     (let [vin (get-in proposal [:value :vin])
           veh (store/vehicle st vin)
-          jp? (= :jp (:jurisdiction veh))
+          us? (= :us (:jurisdiction veh))
           exempt? (and veh (:year veh)
                        (>= (- 2026 (:year veh)) facts/odometer-exempt-model-year-age))]
-      (when (and (not jp?) (not exempt?)
+      (when (and us? (not exempt?)
                  (not (get-in proposal [:value :odometer-disclosure-statement?])))
         [{:rule :odometer-disclosure-gate
           :detail (str "連邦法上の走行距離開示証明が無い(非適用除外車両): vin=" vin)}]))
@@ -137,7 +161,9 @@
         (facts/licensed-dmv-class? (:class src))
         (let [lic (store/dmv-license st (:license-id src))
               region (or (get-in proposal [:value :state])
-                         (get-in proposal [:value :prefecture]))]
+                         (get-in proposal [:value :prefecture])
+                         (get-in proposal [:value :region])
+                         (get-in proposal [:value :jurisdiction]))]
           (when (or (nil? lic) (not (:active? lic))
                     (not (contains? (:states lic) region)))
             [{:rule :source-provenance-gate
@@ -176,6 +202,29 @@
       [{:rule :kobutsusho-license-gate
         :detail (str "古物商許可番号が無い: vin=" (get-in proposal [:value :vin]))}])))
 
+(defn- catalog-subject?
+  [proposal st]
+  (let [vin (get-in proposal [:value :vin])
+        from-value (get-in proposal [:value :catalog?])
+        from-store (when vin (:catalog? (store/vehicle st vin)))]
+    (true? (or from-value from-store))))
+
+(defn- dealer-license-violations
+  "Non-JP markets that declare `:dealer-license-required?` must carry a
+  local trade-licence analogue. JP keeps `:kobutsusho-license-gate`."
+  [{:keys [op]} proposal st]
+  (when (= op :vehicle/list)
+    (let [iso (or (get-in proposal [:value :jurisdiction])
+                  (get-in proposal [:value :country])
+                  (when-let [vin (get-in proposal [:value :vin])]
+                    (:jurisdiction (store/vehicle st vin))))
+          m (border/market iso)]
+      (when (and m (:dealer-license-required? m) (not= iso :jp)
+                 (str/blank? (str (get-in proposal [:value :dealer-license]))))
+        [{:rule :dealer-license-gate
+          :detail (str "販売免許が無い: market=" iso
+                       " vin=" (get-in proposal [:value :vin]))}]))))
+
 (defn- repair-history-disclosure-violations
   "JP sale confirmation must say whether 修復歴 is present. Silence is a
   HARD hold — same shape as the US odometer-disclosure-statement gate."
@@ -199,10 +248,10 @@
         (:scan (store/vehicle st vin)))))
 
 (defn- scan-coverage-violations
-  "JP list / scan/record must carry the required camera angles."
+  "Public catalog list / scan/record must carry the required camera angles."
   [{:keys [op]} proposal st]
   (when (and (contains? #{:vehicle/list :scan/record} op)
-             (jp-subject? proposal st))
+             (or (jp-subject? proposal st) (catalog-subject? proposal st)))
     (let [missing (body/missing-angles (scan-of proposal st))]
       (when (seq missing)
         [{:rule :scan-coverage-gate
@@ -270,6 +319,119 @@
           :detail (str "未納車のままエスクロー解放: vin=" vin
                        " custody=" (:status rec))}]))))
 
+(defn- veh-of [proposal st]
+  (or (store/vehicle st (get-in proposal [:value :vin]))
+      (:value proposal)))
+
+(defn- dest-of [proposal]
+  (or (get-in proposal [:value :dest-country])
+      (get-in proposal [:value :dest])))
+
+(defn- quoted [proposal]
+  (or (get-in proposal [:value :quote])
+      (get-in proposal [:value :landed])))
+
+(defn- border-op? [op]
+  (contains? #{:sale/confirm :border/quote :export/certify :import/permit} op))
+
+(defn- unknown-market-violations
+  [{:keys [op]} proposal st]
+  (when (contains? #{:vehicle/list :sale/confirm :border/quote
+                     :export/certify :import/permit} op)
+    (let [iso (or (get-in proposal [:value :jurisdiction])
+                  (get-in proposal [:value :country])
+                  (border/origin-of (veh-of proposal st)))
+          dest (dest-of proposal)
+          unknown (cond
+                    (and iso (not (border/known-market? iso))
+                         (not (border/denied-dest? iso))) iso
+                    (and dest (not (border/known-market? dest))
+                         (not (border/denied-dest? dest))) dest
+                    :else nil)]
+      (when unknown
+        [{:rule :unknown-market-gate
+          :detail (str "閉じた市場表に無い ISO: " unknown)}]))))
+
+(defn- denied-destination-violations
+  [{:keys [op]} proposal]
+  (when (border-op? op)
+    (when (border/denied-dest? (dest-of proposal))
+      [{:rule :denied-destination-gate
+        :detail (str "denied destination fixture: dest=" (dest-of proposal))}])))
+
+(defn- steering-incompatible-violations
+  [{:keys [op]} proposal st]
+  (when (= op :sale/confirm)
+    (let [veh (veh-of proposal st)
+          origin (border/origin-of veh)
+          dest (dest-of proposal)]
+      (when (and dest (border/cross-border? origin dest)
+                 (not (border/compatible-steering? origin dest))
+                 (not (get-in proposal [:value :steering-waiver?])))
+        [{:rule :steering-incompatible-gate
+          :detail (str "ハンドル位置が市場と不一致: " origin " → " dest)}]))))
+
+(defn- export-certificate-violations
+  [{:keys [op]} proposal st]
+  (when (= op :sale/confirm)
+    (let [veh (veh-of proposal st)
+          origin (border/origin-of veh)
+          dest (dest-of proposal)
+          vin (get-in proposal [:value :vin])
+          cert (store/export-cert st vin)
+          claimed (get-in proposal [:value :export-certified?])]
+      (when (and dest (border/cross-border? origin dest)
+                 (not (or claimed (:certified? cert))))
+        [{:rule :export-certificate-gate
+          :detail (str "輸出証明が無い: vin=" vin " dest=" dest)}]))))
+
+(defn- import-permit-violations
+  [{:keys [op]} proposal st]
+  (when (= op :sale/confirm)
+    (let [veh (veh-of proposal st)
+          origin (border/origin-of veh)
+          dest (dest-of proposal)
+          vin (get-in proposal [:value :vin])
+          permit (store/import-permit st vin)
+          claimed (get-in proposal [:value :import-permit?])]
+      (when (and dest (border/cross-border? origin dest)
+                 (not (or claimed (:permitted? permit))))
+        [{:rule :import-permit-gate
+          :detail (str "輸入許可が無い: vin=" vin " dest=" dest)}]))))
+
+(defn- landed-uncomputable-violations
+  [{:keys [op]} proposal st]
+  (when (contains? #{:sale/confirm :border/quote} op)
+    (let [veh (veh-of proposal st)
+          dest (dest-of proposal)]
+      (when (and dest (border/cross-border? (border/origin-of veh) dest)
+                 (border/known-market? dest)
+                 (not (border/denied-dest? dest)))
+        (let [q (border/landed-cost veh dest)]
+          (when-not (:landed/computable? q)
+            [{:rule :landed-uncomputable-gate
+              :detail (str "関税概算が計算できない: dest=" dest
+                           " missing=" (:landed/missing q))}]))))))
+
+(defn- tariff-conservation-violations
+  [{:keys [op]} proposal st]
+  (when (contains? #{:sale/confirm :border/quote} op)
+    (let [veh (veh-of proposal st)
+          dest (dest-of proposal)
+          quote (quoted proposal)]
+      (when (and dest quote)
+        (let [errs (border/quote-errors veh dest quote)]
+          (when (some #{:rate-manufactured :not-conserved} errs)
+            [{:rule :tariff-conservation-gate
+              :detail (str "関税合計が再導出と一致しない: errs=" (pr-str errs))}]))))))
+
+(defn- hs-adjudication-violations
+  [{:keys [op]} proposal]
+  (when (contains? #{:sale/confirm :border/quote :export/certify :import/permit} op)
+    (when (true? (get-in proposal [:value :hs :adjudicated?]))
+      [{:rule :hs-adjudication-gate
+        :detail "HS を確定分類として提案した。候補のみ許可。"}])))
+
 (defn- scope-exclusion-violations
   [{:keys [op already-transferred?]} proposal]
   (let [effect (:effect proposal)
@@ -298,6 +460,7 @@
                               (source-provenance-violations request proposal st)
                               (licensed-disclosure-violations request context proposal st)
                               (kobutsusho-license-violations request proposal st)
+                              (dealer-license-violations request proposal st)
                               (repair-history-disclosure-violations request proposal st)
                               (inquiry-target-violations request proposal st)
                               (scan-coverage-violations request proposal st)
@@ -307,6 +470,14 @@
                               (payout-destination-violations request proposal st)
                               (funds-not-arrived-violations request proposal st)
                               (custody-handover-violations request proposal st)
+                              (unknown-market-violations request proposal st)
+                              (denied-destination-violations request proposal)
+                              (steering-incompatible-violations request proposal st)
+                              (export-certificate-violations request proposal st)
+                              (import-permit-violations request proposal st)
+                              (landed-uncomputable-violations request proposal st)
+                              (tariff-conservation-violations request proposal st)
+                              (hs-adjudication-violations request proposal)
                               (scope-exclusion-violations request proposal)))
         conf     (:confidence proposal 0.0)
         low?     (< conf confidence-floor)
@@ -314,15 +485,18 @@
         salvage? (and (= (:op request) :sale/confirm) (salvage-title? st vin))
         dispute? (= :dispute/request (:op request))
         money?   (contains? always-escalate-ops (:op request))
+        filings? (contains? filings-escalate-ops (:op request))
         hard?    (boolean (seq hard))]
-    {:ok?          (and (not hard?) (not low?) (not salvage?) (not dispute?) (not money?))
+    {:ok?          (and (not hard?) (not low?) (not salvage?) (not dispute?)
+                        (not money?) (not filings?))
      :violations   hard
      :confidence   conf
      :hard?        hard?
-     :escalate?    (and (not hard?) (or low? salvage? dispute? money?))
+     :escalate?    (and (not hard?) (or low? salvage? dispute? money? filings?))
      :salvage?     salvage?
      :dispute?     dispute?
-     :money?       money?}))
+     :money?       money?
+     :filings?     filings?}))
 
 (defn hold-fact
   [request context verdict]

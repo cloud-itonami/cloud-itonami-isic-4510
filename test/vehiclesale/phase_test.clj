@@ -78,3 +78,15 @@
     (is (= :interrupted (:status r-pay)))
     (is (= :money-rail (-> r-x402 :state :audit last :reason)))
     (is (= :money-rail (-> r-pay :state :audit last :reason)))))
+
+(deftest export-and-import-never-auto-commit-at-phase-3
+  (let [[_ r-ex] (run 3 {:op :export/certify :subject "JP-100" :vin "JP-100"
+                         :origin :jp :certified? true}
+                     dealer)
+        [_ r-im] (run 3 {:op :import/permit :subject "JP-100" :vin "JP-100"
+                         :dest-country :au :permitted? true}
+                     officer)]
+    (is (= :interrupted (:status r-ex)))
+    (is (= :interrupted (:status r-im)))
+    (is (= :filings-adjacent (-> r-ex :state :audit last :reason)))
+    (is (= :filings-adjacent (-> r-im :state :audit last :reason)))))

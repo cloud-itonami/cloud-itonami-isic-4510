@@ -80,6 +80,7 @@
                                     (cond (:dispute? verdict) :buyer-seller-dispute
                                           (:salvage? verdict) :salvage-title
                                           (:money? verdict) :money-rail
+                                          (:filings? verdict) :filings-adjacent
                                           :else :low-confidence))
                         :phase ph
                         :confidence (:confidence verdict)}]}

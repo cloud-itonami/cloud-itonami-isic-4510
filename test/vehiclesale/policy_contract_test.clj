@@ -289,3 +289,107 @@
     (is (= :commit (get-in res [:state :disposition])))
     (is (= :open (:status (store/escrow db "esc-JP-100"))))
     (is (commerce/conserved? (:plan (store/escrow db "esc-JP-100"))))))
+
+(deftest de-listing-without-dealer-license-is-held
+  (let [[db actor] (fresh)
+        seed (store/vehicle db "DE-100")
+        res (exec-op actor "de-lic"
+                     (merge seed {:op :vehicle/list :subject "DE-100"
+                                  :dealer-license "" :odometer 42000
+                                  :source {:class :operator-licensed-eu-type-feed
+                                           :ref "eu-type-demo:DE-100"
+                                           :license-id "eu-type-demo"}})
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:dealer-license-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest unknown-dest-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "xx"
+                     {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :xx}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:unknown-market-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest denied-dest-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "zz"
+                     {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :zz}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:denied-destination-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest steering-mismatch-without-waiver-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "steer"
+                     {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :us :export-certified? true :import-permit? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:steering-incompatible-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest missing-export-cert-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "exp"
+                     {:op :sale/confirm :subject "JP-200" :vin "JP-200"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :au}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:export-certificate-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest missing-import-permit-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "imp"
+                     {:op :sale/confirm :subject "JP-200" :vin "JP-200"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :gb :export-certified? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:import-permit-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest singapore-quote-is-uncomputable
+  (let [[db actor] (fresh)
+        res (exec-op actor "sg"
+                     {:op :sale/confirm :subject "JP-100" :vin "JP-100"
+                      :lien-cleared? true :repair-history-disclosed? true
+                      :dest-country :sg :export-certified? true :import-permit? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:landed-uncomputable-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest manufactured-tariff-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "tariff"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :de
+                      :quote {:landed/computable? true :landed/total-minor 1
+                              :landed/customs-value-minor 1 :landed/duty-minor 0
+                              :landed/vat-minor 0 :landed/conserved? true}}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:tariff-conservation-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest self-adjudicated-hs-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "hs"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :de
+                      :hs {:hs "870323" :adjudicated? true}}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:hs-adjudication-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest honest-border-quote-commits
+  (let [[db actor] (fresh)
+        res (exec-op actor "bq-ok"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :de}
+                     agent-p3)]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (= :de (:dest-country (store/border-quote db "bq-JP-100-de"))))))

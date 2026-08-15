@@ -13,21 +13,27 @@
   (is (= "¥1,850,000" (catalog/yen 1850000M)))
   (is (= "¥450,000" (catalog/yen 450000))))
 
-(deftest default-search-is-jp-unsold
+(deftest default-search-is-catalog-unsold
   (let [hits (catalog/search (listings) {})]
-    (is (every? #(= :jp (:jurisdiction %)) hits))
+    (is (every? #(true? (:catalog? %)) hits))
     (is (not-any? #(= :sold (:listed-status %)) hits))
+    (is (= 9 (count hits)))
+    (is (some #{:de :gb :au :ae} (map :jurisdiction hits)))))
+
+(deftest jp-slice-still-filters
+  (let [hits (catalog/search (listings) {:jurisdiction :jp})]
+    (is (every? #(= :jp (:jurisdiction %)) hits))
     (is (= 5 (count hits)))))
 
 (deftest filter-by-make-and-prefecture
   (let [all (listings)]
-    (is (= ["JP-100"] (mapv :vin (catalog/search all {:make "トヨタ"}))))
+    (is (= ["JP-100"] (mapv :vin (catalog/search all {:make "トヨタ" :jurisdiction :jp}))))
     (is (= ["JP-200"] (mapv :vin (catalog/search all {:prefecture :osaka}))))))
 
 (deftest filter-by-price-and-mileage-caps
   (let [all (listings)
-        cheap (catalog/search all {:price-max 1000000M})
-        low-miles (catalog/search all {:mileage-max 20000})]
+        cheap (catalog/search all {:price-max 1000000M :jurisdiction :jp})
+        low-miles (catalog/search all {:mileage-max 20000 :jurisdiction :jp})]
     (is (every? #(<= (:price %) 1000000M) cheap))
     (is (some #{"JP-200" "JP-500"} (map :vin cheap)))
     (is (= ["JP-400"] (mapv :vin low-miles)))))
@@ -35,10 +41,11 @@
 (deftest keyword-q-hits-model-or-prefecture-label
   (let [all (listings)]
     (is (= ["JP-200"] (mapv :vin (catalog/search all {:q "フィット"}))))
-    (is (some #{"JP-100"} (map :vin (catalog/search all {:q "東京"}))))))
+    (is (some #{"JP-100"} (map :vin (catalog/search all {:q "東京"}))))
+    (is (some #{"DE-100"} (map :vin (catalog/search all {:q "ドイツ"}))))))
 
 (deftest card-is-display-ready
-  (let [hit (first (catalog/search (listings) {:make "トヨタ"}))
+  (let [hit (first (catalog/search (listings) {:make "トヨタ" :jurisdiction :jp}))
         c (catalog/card hit)]
     (is (= "JP-100" (:vin c)))
     (is (= "#v/JP-100" (:href c)))
@@ -54,4 +61,6 @@
         impreza (first (filter #(= "JP-500" (:vin %)) all))]
     (is (true? (:scan-complete? prius)))
     (is (false? (:scan-complete? impreza)))
-    (is (pos? (get-in prius [:running-cost :total-yen])))))
+    (is (pos? (get-in prius [:running-cost :total-yen])))
+    (let [bmw (first (filter #(= "DE-100" (:vin %)) all))]
+      (is (nil? (:running-cost bmw))))))

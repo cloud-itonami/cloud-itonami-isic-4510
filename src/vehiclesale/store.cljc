@@ -10,12 +10,13 @@
   (test/vehiclesale/store_contract_test.clj).
 
   Entity shapes (ADR): a vehicle listing (VIN, make/model/year, title
-  status, asking price, plus JP marketplace fields: prefecture, body-type,
-  古物商許可, 修復歴, 車検, body dimensions, camera-scan pack), the
-  title/lien record, odometer history, a dmv-license (US DMV *and* JP
-  AIRIS/電子車検証), a subscriber contract, a buyer inquiry, an escrow
-  *plan* (yen hold authorisation), a custody record, a payout destination,
-  and an x402 information receipt.
+  status, asking price, catalog? / currency / steering / country, JP
+  marketplace fields, body dimensions, camera-scan pack), the title/lien
+  record, odometer history, a dmv-license (US DMV, JP AIRIS, EU type,
+  UK DVLA, AU PPSR, UAE RTA), a subscriber contract, a buyer inquiry,
+  an escrow *plan*, a custody record, a payout destination, an x402
+  information receipt, and border artefacts (quote / export cert /
+  import permit). Those artefacts are labels and arithmetic, not filings.
 
   This actor never executes a transfer. A committed `:escrow-upsert` is a
   computation + authorisation record. `cloud-itonami-marketplace-settlement`
@@ -43,6 +44,10 @@
   (payout [s seller-id])
   (x402-receipt [s id])
   (all-x402-receipts [s])
+  (export-cert [s vin])
+  (import-permit [s vin])
+  (border-quote [s id])
+  (all-border-quotes [s])
   (commit-record! [s record] "apply a committed op's record to the SSoT")
   (append-ledger! [s fact]   "append one immutable decision/disclosure fact")
   (with-vehicles [s vehicles] "replace/seed vehicles (map vin→vehicle)")
@@ -54,7 +59,10 @@
   (with-escrows [s escrows])
   (with-custody [s recs])
   (with-payouts [s recs])
-  (with-x402-receipts [s recs]))
+  (with-x402-receipts [s recs])
+  (with-export-certs [s recs])
+  (with-import-permits [s recs])
+  (with-border-quotes [s recs]))
 
 ;; ───────────────────────── demo data (fictitious, non-real VINs) ─────
 
@@ -64,9 +72,10 @@
   carries a demo active lien and `vin-300` a demo salvage title purely to
   exercise the governor gates — not claims about real vehicles.
 
-  `JP-*` rows are the Japan used-car marketplace inventory (Carsensor-like
-  face). Makes, models, prices and 古物商許可番号 are invented. They are
-  not listings of real cars or real dealers."
+  `JP-*` and `DE-`/`GB-`/`AU-`/`AE-` rows are the public catalog
+  (`:catalog? true`). Makes, models, prices and licence numbers are
+  invented. They are not listings of real cars or real dealers.
+  US `vin-*` rows stay operator-only."
   []
   {:vehicles
    {"vin-100" {:vin "vin-100" :make "Demo" :model "Sedan" :year 2022
@@ -92,6 +101,7 @@
               :weight-kg 1350 :fuel-economy-km-l 28.0
               :doors 5 :seats 5 :drive :ff
               :length-mm 4540 :width-mm 1760 :height-mm 1470
+              :catalog? true :currency :jpy :steering :rhd :country :jp
               :scan (body/demo-scan "JP-100")}
     "JP-200" {:vin "JP-200" :jurisdiction :jp :make "ホンダ" :model "フィット"
               :grade "HOME" :year 2019 :mileage 51000 :price 980000M
@@ -104,6 +114,7 @@
               :weight-kg 1080 :fuel-economy-km-l 21.0
               :doors 5 :seats 5 :drive :ff
               :length-mm 3990 :width-mm 1695 :height-mm 1520
+              :catalog? true :currency :jpy :steering :rhd :country :jp
               :scan (body/demo-scan "JP-200")}
     "JP-300" {:vin "JP-300" :jurisdiction :jp :make "日産" :model "セレナ"
               :grade "XV" :year 2018 :mileage 78000 :price 1280000M
@@ -116,6 +127,7 @@
               :weight-kg 1680 :fuel-economy-km-l 13.5
               :doors 5 :seats 8 :drive :ff
               :length-mm 4770 :width-mm 1740 :height-mm 1865
+              :catalog? true :currency :jpy :steering :rhd :country :jp
               :scan (body/demo-scan "JP-300")}
     "JP-400" {:vin "JP-400" :jurisdiction :jp :make "マツダ" :model "CX-5"
               :grade "XD" :year 2022 :mileage 18000 :price 2680000M
@@ -128,6 +140,7 @@
               :weight-kg 1620 :fuel-economy-km-l 18.0
               :doors 5 :seats 5 :drive :4wd
               :length-mm 4575 :width-mm 1845 :height-mm 1680
+              :catalog? true :currency :jpy :steering :rhd :country :jp
               :scan (body/demo-scan "JP-400")}
     "JP-500" {:vin "JP-500" :jurisdiction :jp :make "スバル" :model "インプレッサ"
               :grade "1.6i" :year 2016 :mileage 120000 :price 450000M
@@ -142,7 +155,60 @@
               :length-mm 4580 :width-mm 1740 :height-mm 1465
               :scan {:angles {:front "bafkdemo-JP-500-front"}
                      :captured-at "2026-04-02" :operator-id "da-1"
-                     :fictitious? true}}}
+                     :fictitious? true}
+              :catalog? true :currency :jpy :steering :rhd :country :jp}
+    "DE-100" {:vin "DE-100" :jurisdiction :de :country :de :catalog? true
+              :make "BMW" :model "320d" :grade "M Sport" :year 2020
+              :mileage 42000 :price 28500M :currency :eur :steering :lhd
+              :region :bavaria :body-type :sedan :fuel :diesel
+              :displacement-cc 2000 :color "アルピンホワイト"
+              :inspection-expires "2026-11" :repair-history? false
+              :dealer "Demo Autohaus München"
+              :dealer-license "DE-KBA-DEMO-320d"
+              :title-status :clean :listed-status :listed
+              :weight-kg 1545 :fuel-economy-km-l 18.5
+              :doors 4 :seats 5 :drive :fr
+              :length-mm 4709 :width-mm 1827 :height-mm 1442
+              :scan (body/demo-scan "DE-100")}
+    "GB-100" {:vin "GB-100" :jurisdiction :gb :country :gb :catalog? true
+              :make "MINI" :model "Cooper" :grade "Classic" :year 2021
+              :mileage 28000 :price 18900M :currency :gbp :steering :rhd
+              :region :england :body-type :hatch :fuel :gasoline
+              :displacement-cc 1500 :color "ブリティッシュレーシンググリーン"
+              :inspection-expires "2027-01" :repair-history? false
+              :dealer "Demo Motors London"
+              :dealer-license "GB-DVLA-DEMO-MINI"
+              :title-status :clean :listed-status :listed
+              :weight-kg 1160 :fuel-economy-km-l 19.0
+              :doors 3 :seats 4 :drive :ff
+              :length-mm 3850 :width-mm 1727 :height-mm 1414
+              :scan (body/demo-scan "GB-100")}
+    "AU-100" {:vin "AU-100" :jurisdiction :au :country :au :catalog? true
+              :make "トヨタ" :model "ハイラックス" :grade "SR5" :year 2019
+              :mileage 64000 :price 42000M :currency :aud :steering :rhd
+              :region :nsw :body-type :suv :fuel :diesel
+              :displacement-cc 2800 :color "ホワイト"
+              :inspection-expires "2026-10" :repair-history? false
+              :dealer "Demo Motors Sydney"
+              :dealer-license "NSW-MDL-DEMO-HILUX"
+              :title-status :clean :listed-status :listed
+              :weight-kg 2060 :fuel-economy-km-l 11.0
+              :doors 4 :seats 5 :drive :4wd
+              :length-mm 5325 :width-mm 1900 :height-mm 1815
+              :scan (body/demo-scan "AU-100")}
+    "AE-100" {:vin "AE-100" :jurisdiction :ae :country :ae :catalog? true
+              :make "日産" :model "パトロール" :grade "SE" :year 2021
+              :mileage 35000 :price 145000M :currency :aed :steering :rhd
+              :region :dubai :body-type :suv :fuel :gasoline
+              :displacement-cc 4000 :color "パールホワイト"
+              :inspection-expires "2026-12" :repair-history? false
+              :dealer "Demo Motors Dubai"
+              :dealer-license "UAE-RTA-DEMO-PATROL"
+              :title-status :clean :listed-status :listed
+              :weight-kg 2735 :fuel-economy-km-l 8.5
+              :doors 5 :seats 7 :drive :4wd
+              :length-mm 5175 :width-mm 1995 :height-mm 1940
+              :scan (body/demo-scan "AE-100")}}
    :title-records
    {"vin-100" {:vin "vin-100" :lien-holder nil :active? false}
     "vin-200" {:vin "vin-200" :lien-holder "Demo Credit Union (fictitious)" :active? true}
@@ -152,7 +218,11 @@
     "JP-200" {:vin "JP-200" :lien-holder nil :active? false}
     "JP-300" {:vin "JP-300" :lien-holder nil :active? false}
     "JP-400" {:vin "JP-400" :lien-holder nil :active? false}
-    "JP-500" {:vin "JP-500" :lien-holder nil :active? false}}
+    "JP-500" {:vin "JP-500" :lien-holder nil :active? false}
+    "DE-100" {:vin "DE-100" :lien-holder nil :active? false}
+    "GB-100" {:vin "GB-100" :lien-holder nil :active? false}
+    "AU-100" {:vin "AU-100" :lien-holder nil :active? false}
+    "AE-100" {:vin "AE-100" :lien-holder nil :active? false}}
    :odometer-records
    {"vin-100" {:vin "vin-100" :reading 32000 :date "2026-06-01"
                :source {:class :federal-title-registry :ref "nmvtis-doj-gateway:vin-100"}}
@@ -169,7 +239,15 @@
     "JP-400" {:vin "JP-400" :reading 18000 :date "2026-07-08"
               :source {:class :operator-licensed-shakensho-feed :ref "airis-demo:JP-400"}}
     "JP-500" {:vin "JP-500" :reading 120000 :date "2026-04-02"
-              :source {:class :operator-licensed-shakensho-feed :ref "airis-demo:JP-500"}}}
+              :source {:class :operator-licensed-shakensho-feed :ref "airis-demo:JP-500"}}
+    "DE-100" {:vin "DE-100" :reading 42000 :date "2026-06-01"
+              :source {:class :operator-licensed-eu-type-feed :ref "eu-type-demo:DE-100"}}
+    "GB-100" {:vin "GB-100" :reading 28000 :date "2026-06-12"
+              :source {:class :operator-licensed-dvla-feed :ref "dvla-demo:GB-100"}}
+    "AU-100" {:vin "AU-100" :reading 64000 :date "2026-05-20"
+              :source {:class :operator-licensed-ppsr-feed :ref "ppsr-demo:AU-100"}}
+    "AE-100" {:vin "AE-100" :reading 35000 :date "2026-06-08"
+              :source {:class :operator-licensed-uae-rta-feed :ref "uae-rta-demo:AE-100"}}}
    :dmv-licenses
    {"dmv-demo-ca" {:license-id "dmv-demo-ca" :provider "Demo State DMV Data Access (fictitious)"
                    :states #{:ca :nv} :active? true}
@@ -181,7 +259,19 @@
                   :active? true}
     "airis-demo-expired" {:license-id "airis-demo-expired"
                           :provider "Lapsed Demo AIRIS feed (fictitious)"
-                          :states #{:tokyo} :active? false}}
+                          :states #{:tokyo} :active? false}
+    "eu-type-demo" {:license-id "eu-type-demo"
+                    :provider "Demo EU type-approval / COC feed (fictitious)"
+                    :states #{:de :bavaria :fr} :active? true}
+    "dvla-demo" {:license-id "dvla-demo"
+                 :provider "Demo UK DVLA / MOT feed (fictitious)"
+                 :states #{:gb :england} :active? true}
+    "ppsr-demo" {:license-id "ppsr-demo"
+                 :provider "Demo Australia PPSR feed (fictitious)"
+                 :states #{:au :nsw} :active? true}
+    "uae-rta-demo" {:license-id "uae-rta-demo"
+                    :provider "Demo UAE RTA / GSO feed (fictitious)"
+                    :states #{:ae :dubai} :active? true}}
    :contracts
    {"tenant-acme"  {:tenant "tenant-acme" :tier :tier/dealer :active? true :purpose :dealer-inventory}
     "tenant-basic" {:tenant "tenant-basic" :tier :tier/basic :active? true :purpose :retail-buyer}}
@@ -195,15 +285,30 @@
     "デモモータース名古屋" {:seller-id "デモモータース名古屋" :verified? true
                       :rail :stripe-separate :account "acct_demo_aichi"}
     "デモ自動車札幌" {:seller-id "デモ自動車札幌" :verified? false
-                   :rail :stripe-separate :account "acct_demo_hokkaido"}}
+                   :rail :stripe-separate :account "acct_demo_hokkaido"}
+    "Demo Autohaus München" {:seller-id "Demo Autohaus München" :verified? true
+                             :rail :stripe-separate :account "acct_demo_munich"}
+    "Demo Motors London" {:seller-id "Demo Motors London" :verified? true
+                          :rail :stripe-separate :account "acct_demo_london"}
+    "Demo Motors Sydney" {:seller-id "Demo Motors Sydney" :verified? true
+                          :rail :stripe-separate :account "acct_demo_sydney"}
+    "Demo Motors Dubai" {:seller-id "Demo Motors Dubai" :verified? true
+                         :rail :stripe-separate :account "acct_demo_dubai"}}
    :custody
    {"JP-100" {:vin "JP-100" :status :at-dealer :holder "デモモータース東京"}
     "JP-200" {:vin "JP-200" :status :at-dealer :holder "デモオート大阪"}
     "JP-300" {:vin "JP-300" :status :at-dealer :holder "デモカー福岡"}
     "JP-400" {:vin "JP-400" :status :at-dealer :holder "デモモータース名古屋"}
-    "JP-500" {:vin "JP-500" :status :at-dealer :holder "デモ自動車札幌"}}
+    "JP-500" {:vin "JP-500" :status :at-dealer :holder "デモ自動車札幌"}
+    "DE-100" {:vin "DE-100" :status :at-dealer :holder "Demo Autohaus München"}
+    "GB-100" {:vin "GB-100" :status :at-dealer :holder "Demo Motors London"}
+    "AU-100" {:vin "AU-100" :status :at-dealer :holder "Demo Motors Sydney"}
+    "AE-100" {:vin "AE-100" :status :at-dealer :holder "Demo Motors Dubai"}}
    :escrows {}
    :x402-receipts {}
+   :export-certs {}
+   :import-permits {}
+   :border-quotes {}
    :inquiries {}})
 
 ;; ───────────────────────── MemStore (default) ─────────────────────────
@@ -225,6 +330,10 @@
   (payout [_ seller-id] (get-in @a [:payouts seller-id]))
   (x402-receipt [_ id] (get-in @a [:x402-receipts id]))
   (all-x402-receipts [_] (sort-by :receipt-id (vals (:x402-receipts @a))))
+  (export-cert [_ vin] (get-in @a [:export-certs vin]))
+  (import-permit [_ vin] (get-in @a [:import-permits vin]))
+  (border-quote [_ id] (get-in @a [:border-quotes id]))
+  (all-border-quotes [_] (sort-by :quote-id (vals (:border-quotes @a))))
   (commit-record! [s {:keys [effect path value]}]
     (case effect
       :listing-upsert   (do (swap! a assoc-in [:vehicles (:vin value)] value)
@@ -244,6 +353,9 @@
       :custody-upsert    (swap! a assoc-in [:custody (:vin value)] value)
       :payout-upsert     (swap! a assoc-in [:payouts (:seller-id value)] value)
       :x402-receipt-upsert (swap! a assoc-in [:x402-receipts (:receipt-id value)] value)
+      :export-cert-upsert (swap! a assoc-in [:export-certs (:vin value)] value)
+      :import-permit-upsert (swap! a assoc-in [:import-permits (:vin value)] value)
+      :border-quote-upsert (swap! a assoc-in [:border-quotes (:quote-id value)] value)
       :scan-upsert       (swap! a update-in [:vehicles (:vin value)]
                                 merge (select-keys value [:scan :vin]))
       :correction-apply  (swap! a update-in [:vehicles (first path)] merge (:patch value))
@@ -259,14 +371,18 @@
   (with-escrows [s xs]         (when (seq xs) (swap! a assoc :escrows xs)) s)
   (with-custody [s xs]         (when (seq xs) (swap! a assoc :custody xs)) s)
   (with-payouts [s xs]         (when (seq xs) (swap! a assoc :payouts xs)) s)
-  (with-x402-receipts [s xs]   (when (seq xs) (swap! a assoc :x402-receipts xs)) s))
+  (with-x402-receipts [s xs]   (when (seq xs) (swap! a assoc :x402-receipts xs)) s)
+  (with-export-certs [s xs]    (when (seq xs) (swap! a assoc :export-certs xs)) s)
+  (with-import-permits [s xs]  (when (seq xs) (swap! a assoc :import-permits xs)) s)
+  (with-border-quotes [s xs]   (when (seq xs) (swap! a assoc :border-quotes xs)) s))
 
 (defn seed-db
   "A MemStore seeded with the demo data. The deterministic default."
   []
   (->MemStore (atom (merge (demo-data)
                            {:ledger [] :inquiries {} :escrows {}
-                            :x402-receipts {}}))))
+                            :x402-receipts {} :export-certs {}
+                            :import-permits {} :border-quotes {}}))))
 
 ;; ───────────────────────── DatomicStore (langchain.db) ─────────────────
 
@@ -284,6 +400,9 @@
    :custody/vin        {:db/unique :db.unique/identity}
    :payout/id          {:db/unique :db.unique/identity}
    :x402/id            {:db/unique :db.unique/identity}
+   :export/vin         {:db/unique :db.unique/identity}
+   :import/vin         {:db/unique :db.unique/identity}
+   :border-quote/id    {:db/unique :db.unique/identity}
    :ledger/seq         {:db/unique :db.unique/identity}})
 
 (defn- enc [v] (ls/enc v))
@@ -293,7 +412,8 @@
   [:jurisdiction :prefecture :mileage :body-type :kobutsusho-license
    :repair-history? :inspection-expires :dealer :grade :fuel
    :displacement-cc :color :listed-status :weight-kg :fuel-economy-km-l
-   :doors :seats :drive :length-mm :width-mm :height-mm :scan])
+   :doors :seats :drive :length-mm :width-mm :height-mm :scan
+   :catalog? :currency :steering :country :dealer-license :region])
 
 (defn- vehicle->tx [{:keys [vin make model year title-status price] :as v}]
   (cond-> {:vehicle/vin vin :vehicle/listing (enc (select-keys v listing-keys))}
@@ -414,6 +534,22 @@
          (map #(pull->blob :x402/id :x402/blob
                            (d/pull (d/db conn) [:x402/id :x402/blob] [:x402/id %])))
          (sort-by :receipt-id)))
+  (export-cert [_ vin]
+    (pull->blob :export/vin :export/blob
+                (d/pull (d/db conn) [:export/vin :export/blob] [:export/vin vin])))
+  (import-permit [_ vin]
+    (pull->blob :import/vin :import/blob
+                (d/pull (d/db conn) [:import/vin :import/blob] [:import/vin vin])))
+  (border-quote [_ id]
+    (pull->blob :border-quote/id :border-quote/blob
+                (d/pull (d/db conn) [:border-quote/id :border-quote/blob]
+                        [:border-quote/id id])))
+  (all-border-quotes [_]
+    (->> (d/q '[:find [?i ...] :where [?e :border-quote/id ?i]] (d/db conn))
+         (map #(pull->blob :border-quote/id :border-quote/blob
+                           (d/pull (d/db conn) [:border-quote/id :border-quote/blob]
+                                   [:border-quote/id %])))
+         (sort-by :quote-id)))
   (commit-record! [s {:keys [effect path value]}]
     (case effect
       :listing-upsert   (do (d/transact! conn [(vehicle->tx value)])
@@ -433,6 +569,10 @@
       :custody-upsert    (d/transact! conn [(blob-tx :custody/vin :custody/blob (:vin value) value)])
       :payout-upsert     (d/transact! conn [(blob-tx :payout/id :payout/blob (:seller-id value) value)])
       :x402-receipt-upsert (d/transact! conn [(blob-tx :x402/id :x402/blob (:receipt-id value) value)])
+      :export-cert-upsert (d/transact! conn [(blob-tx :export/vin :export/blob (:vin value) value)])
+      :import-permit-upsert (d/transact! conn [(blob-tx :import/vin :import/blob (:vin value) value)])
+      :border-quote-upsert (d/transact! conn [(blob-tx :border-quote/id :border-quote/blob
+                                                       (:quote-id value) value)])
       :scan-upsert
       (d/transact! conn [(vehicle->tx (merge (vehicle s (:vin value))
                                              (select-keys value [:scan :vin])))])
@@ -466,18 +606,31 @@
                                            (vals xs)))) s)
   (with-x402-receipts [s xs]
     (when (seq xs) (d/transact! conn (mapv #(blob-tx :x402/id :x402/blob (:receipt-id %) %)
+                                           (vals xs)))) s)
+  (with-export-certs [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :export/vin :export/blob (:vin %) %)
+                                           (vals xs)))) s)
+  (with-import-permits [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :import/vin :import/blob (:vin %) %)
+                                           (vals xs)))) s)
+  (with-border-quotes [s xs]
+    (when (seq xs) (d/transact! conn (mapv #(blob-tx :border-quote/id :border-quote/blob
+                                                     (:quote-id %) %)
                                            (vals xs)))) s))
 
 (defn datomic-store
   ([] (datomic-store {}))
   ([{:keys [vehicles title-records odometer-records dmv-licenses contracts
-            inquiries escrows custody payouts x402-receipts]}]
+            inquiries escrows custody payouts x402-receipts
+            export-certs import-permits border-quotes]}]
    (let [s (->DatomicStore (d/create-conn schema))]
      (-> s (with-vehicles vehicles) (with-title-records title-records)
          (with-odometer-records odometer-records) (with-dmv-licenses dmv-licenses)
          (with-contracts contracts) (with-inquiries inquiries)
          (with-escrows escrows) (with-custody custody)
-         (with-payouts payouts) (with-x402-receipts x402-receipts)))))
+         (with-payouts payouts) (with-x402-receipts x402-receipts)
+         (with-export-certs export-certs) (with-import-permits import-permits)
+         (with-border-quotes border-quotes)))))
 
 (defn datomic-seed-db []
   (datomic-store (demo-data)))
