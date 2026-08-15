@@ -14,6 +14,8 @@
   (is (= (into #{} (map :class facts/catalog)) facts/allowed-source-classes)))
 
 (deftest class-allowed?-rejects-unlisted-classes
+  (is (facts/class-allowed? :mlit-recall-registry))
+  (is (facts/class-allowed? :operator-licensed-shakensho-feed))
   (is (facts/class-allowed? :federal-title-registry))
   (is (facts/class-allowed? :operator-licensed-dmv-feed))
   (is (not (facts/class-allowed? :inference)))
@@ -22,10 +24,11 @@
 
 (deftest licensed-dmv-class-recognized
   (is (facts/licensed-dmv-class? :operator-licensed-dmv-feed))
+  (is (facts/licensed-dmv-class? :operator-licensed-shakensho-feed))
   (is (not (facts/licensed-dmv-class? :federal-title-registry))))
 
 (deftest coverage-is-honest-not-aspirational
   (let [c (facts/coverage)]
     (is (= (count facts/catalog) (:source-count c)))
     (is (<= (:source-count c) 20))
-    (is (= 2 (count (:free-public-sources c))))))
+    (is (= 3 (count (:free-public-sources c))))))

@@ -19,5 +19,10 @@
                  :price         (:price veh)
                  :odometer      (:reading odo)
                  :lien-status   (if (:active? title) :active-lien :clear)
+                 :prefecture    (:prefecture veh)
+                 :mileage       (or (:mileage veh) (:reading odo))
+                 :body-type     (:body-type veh)
+                 :repair-history? (:repair-history? veh)
+                 :kobutsusho-license (:kobutsusho-license veh)
                  nil))]
     (into {} (map (juxt identity cell)) columns)))

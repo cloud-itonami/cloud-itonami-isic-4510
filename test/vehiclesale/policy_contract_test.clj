@@ -157,3 +157,64 @@
                         :lien-cleared? false :odometer-disclosure-statement? true}
              agent-p3)
     (is (= 2 (count (store/ledger db))))))
+
+(def jp-airis
+  {:class :operator-licensed-shakensho-feed :ref "airis-demo:JP-100" :license-id "airis-demo"})
+
+(deftest jp-listing-without-kobutsusho-is-held
+  (let [[db actor] (fresh)
+        seed (store/vehicle db "JP-100")
+        res (exec-op actor "jp-k"
+                     (merge seed
+                            {:op :vehicle/list :subject "JP-100" :source jp-airis
+                             :kobutsusho-license "" :odometer 32100})
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:kobutsusho-license-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest jp-listing-with-kobutsusho-commits
+  (let [[db actor] (fresh)
+        seed (store/vehicle db "JP-100")
+        res (exec-op actor "jp-ok"
+                     (merge {:op :vehicle/list :subject "JP-100" :source jp-airis
+                             :odometer 32100}
+                            seed)
+                     agent-p3)]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (= 32100 (:reading (store/odometer-latest db "JP-100"))))))
+
+(deftest jp-sale-without-repair-history-disclosure-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "jp-rh"
+                     {:op :sale/confirm :subject "JP-400" :vin "JP-400" :lien-cleared? true}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:repair-history-disclosure-gate} (-> (store/ledger db) first :basis)))
+    (is (not= :sold (:listed-status (store/vehicle db "JP-400"))))))
+
+(deftest jp-sale-with-repair-history-disclosure-commits
+  (let [[db actor] (fresh)
+        res (exec-op actor "jp-sold"
+                     {:op :sale/confirm :subject "JP-400" :vin "JP-400"
+                      :lien-cleared? true :repair-history-disclosed? false}
+                     agent-p3)]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (= :sold (:listed-status (store/vehicle db "JP-400"))))))
+
+(deftest inquiry-against-missing-vin-is-held
+  (let [[db actor] (fresh)
+        res (exec-op actor "ghost"
+                     {:op :inquiry/submit :subject "JP-ghost" :vin "JP-ghost"
+                      :buyer-id "buyer-demo" :body "x" :inquiry-id "inq-ghost"}
+                     {:actor-id "b-1" :actor-role :buyer :tenant "tenant-basic" :phase 3})]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:inquiry-target-gate} (-> (store/ledger db) first :basis)))))
+
+(deftest inquiry-against-listed-vin-commits
+  (let [[db actor] (fresh)
+        res (exec-op actor "inq"
+                     {:op :inquiry/submit :subject "JP-200" :vin "JP-200"
+                      :buyer-id "buyer-demo" :body "試乗希望" :inquiry-id "inq-JP-200"}
+                     {:actor-id "b-1" :actor-role :buyer :tenant "tenant-basic" :phase 3})]
+    (is (= :commit (get-in res [:state :disposition])))
+    (is (= "JP-200" (:vin (store/inquiry db "inq-JP-200"))))))

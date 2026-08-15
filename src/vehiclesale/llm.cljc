@@ -22,37 +22,61 @@
             [langchain.model :as model]
             [vehiclesale.store :as store]))
 
+(def ^:private listing-pass-through
+  [:vin :make :model :year :title-status :price :odometer :state
+   :jurisdiction :prefecture :mileage :body-type :kobutsusho-license
+   :repair-history? :inspection-expires :dealer :grade :fuel
+   :displacement-cc :color :listed-status])
+
 (defn- propose-list
   "Listing normalization — the LLM only normalizes/validates the caller-
   supplied listing (adds no new facts). `:unsourced?` injects the failure
   mode we must defend against: a listing arriving with no odometer-source
   citation at all — the source-provenance-gate must reject this outright."
-  [_db {:keys [vin make model year title-status price odometer state source unsourced?]}]
-  (let [src (when-not unsourced? source)]
-    {:summary   (str "vehicle listing: " vin " " make " " model " " year)
+  [_db {:keys [source unsourced?] :as req}]
+  (let [src (when-not unsourced? source)
+        value (-> (select-keys req listing-pass-through)
+                  (assoc :source src)
+                  (update :listed-status #(or % :listed)))]
+    {:summary   (str "vehicle listing: " (:vin req) " " (:make req) " " (:model req) " " (:year req))
      :rationale "出典引用済みデータの正規化のみ。新規事実の生成なし。"
      :cites     [:vin :make :model :year :title-status :price :odometer]
      :source    src
      :effect    :listing-upsert
-     :value     {:vin vin :make make :model model :year year
-                 :title-status title-status :price price :odometer odometer
-                 :state state :source src}
+     :value     value
      :confidence (if unsourced? 0.9 0.95)}))
 
 (defn- propose-confirm
   "Sale-confirmation draft. `lien-cleared?`/`odometer-disclosure-statement?`
-  are caller-asserted claims the LLM passes through untouched — it is the
-  governor's job (lien-clearance-gate / odometer-disclosure-gate), not the
-  LLM's, to verify them against the SSoT."
-  [_db {:keys [vin lien-cleared? odometer-disclosure-statement?]}]
+  / `repair-history-disclosed?` are caller-asserted claims the LLM passes
+  through untouched — it is the governor's job, not the LLM's, to verify
+  them against the SSoT."
+  [_db {:keys [vin lien-cleared? odometer-disclosure-statement?
+               repair-history-disclosed?] :as req}]
   {:summary   (str "sale confirm: " vin)
-   :rationale "リーエン解消/走行距離開示証明の申告を伝達のみ。検証は governor が行う。"
+   :rationale "リーエン解消/走行距離開示証明/修復歴開示の申告を伝達のみ。検証は governor が行う。"
    :cites     [:vin]
    :source    nil
    :effect    :vehicle-sale-confirm
-   :value     {:vin vin :lien-cleared? lien-cleared?
-               :odometer-disclosure-statement? odometer-disclosure-statement?}
+   :value     (cond-> {:vin vin :lien-cleared? lien-cleared?
+                       :odometer-disclosure-statement? odometer-disclosure-statement?}
+                (contains? req :repair-history-disclosed?)
+                (assoc :repair-history-disclosed? repair-history-disclosed?))
    :confidence 0.9})
+
+(defn- propose-inquiry
+  "Buyer inquiry (lead). The LLM does not invent a vehicle or a dealer —
+  it copies the caller's vin / buyer-id / body. Identity fields beyond
+  `:buyer-id` are refused by construction; do not add PII keys here."
+  [_db {:keys [vin buyer-id body inquiry-id]}]
+  (let [id (or inquiry-id (str "inq-" vin))]
+    {:summary   (str "inquiry: " id " → " vin)
+     :rationale "問い合わせ本文の正規化のみ。車両の存在確認は governor が行う。"
+     :cites     [:vin :buyer-id]
+     :source    nil
+     :effect    :inquiry-upsert
+     :value     {:inquiry-id id :vin vin :buyer-id buyer-id :body body :status :open}
+     :confidence 0.9}))
 
 (defn- propose-disclosure
   "Disclosure column-set proposal. `:greedy?` injects over-disclosure
@@ -87,6 +111,7 @@
     :vehicle/list         (propose-list db request)
     :sale/confirm          (propose-confirm db request)
     :disclosure/query      (propose-disclosure db request)
+    :inquiry/submit        (propose-inquiry db request)
     :dispute/request       (propose-dispute db request)
     {:summary "未対応の操作" :rationale (str op) :cites [] :source nil
      :effect :noop :confidence 0.0}))
@@ -105,7 +130,7 @@
        "書かず、EDN だけを出力します。\n"
        "キー: :summary :rationale :cites :source(nilも可) "
        ":effect(:listing-upsert|:vehicle-sale-confirm|:disclosure-serve|"
-       ":correction-apply) :value :confidence(0..1)。\n"
+       ":inquiry-upsert|:correction-apply) :value :confidence(0..1)。\n"
        "重要: 出典を伴わない出品や、走行距離のロールバックは絶対に提案しては"
        "いけません。リーエン解消の真偽判定や走行距離開示証明の要否判定は"
        "あなたの責務ではありません(governor が判定します)。"))

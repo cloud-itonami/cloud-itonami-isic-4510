@@ -16,7 +16,9 @@
       (is (= 32000 (:reading (store/odometer-latest s "vin-100"))))
       (is (true? (:active? (store/dmv-license s "dmv-demo-ca"))))
       (is (false? (:active? (store/dmv-license s "dmv-demo-expired"))))
-      (is (= 4 (count (store/all-vehicles s)))))))
+      (is (= 9 (count (store/all-vehicles s))))
+      (is (= "トヨタ" (:make (store/vehicle s "JP-100"))))
+      (is (= :tokyo (:prefecture (store/vehicle s "JP-100")))))))
 
 (deftest write-and-ledger-parity
   (doseq [[label s] (backends)]
@@ -35,6 +37,13 @@
                                  :value {:patch {:title-status :clean}}
                                  :path ["vin-300"]})
         (is (= :clean (:title-status (store/vehicle s "vin-300")))))
+      (testing "inquiry upsert and sale confirm marks JP listing sold"
+        (store/commit-record! s {:effect :inquiry-upsert
+                                 :value {:inquiry-id "inq-1" :vin "JP-200"
+                                         :buyer-id "buyer-demo" :body "試乗" :status :open}})
+        (is (= "JP-200" (:vin (store/inquiry s "inq-1"))))
+        (store/commit-record! s {:effect :vehicle-sale-confirm :value {:vin "JP-400"}})
+        (is (= :sold (:listed-status (store/vehicle s "JP-400")))))
       (testing "ledger is append-only and order-preserving"
         (store/append-ledger! s {:op :a :disposition :commit})
         (store/append-ledger! s {:op :b :disposition :hold})

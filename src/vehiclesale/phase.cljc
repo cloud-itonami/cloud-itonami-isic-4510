@@ -17,17 +17,17 @@
   set, at any phase.")
 
 (def read-ops  #{:disclosure/query})
-(def write-ops #{:vehicle/list :sale/confirm :dispute/request})
+(def write-ops #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit})
 
 (def phases
   {0 {:label "read-only"          :writes #{}
                                    :auto #{}}
-   1 {:label "assisted-listing"   :writes #{:vehicle/list}
+   1 {:label "assisted-listing"   :writes #{:vehicle/list :inquiry/submit}
                                    :auto #{}}
-   2 {:label "assisted-sale"      :writes #{:vehicle/list :sale/confirm :dispute/request}
+   2 {:label "assisted-sale"      :writes #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit}
                                    :auto #{}}
-   3 {:label "supervised-auto"    :writes #{:vehicle/list :sale/confirm :dispute/request}
-                                   :auto #{:vehicle/list :sale/confirm}}})
+   3 {:label "supervised-auto"    :writes #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit}
+                                   :auto #{:vehicle/list :sale/confirm :inquiry/submit}}})
 
 (def default-phase
   "The phase used when `context` carries no :phase at all, AND the fallback

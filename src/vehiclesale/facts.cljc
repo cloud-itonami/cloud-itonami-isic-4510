@@ -33,11 +33,21 @@
     :class :federal-recall-registry
     :access :public-api
     :url "https://www.nhtsa.gov/recalls"}
+   {:id :mlit-recall
+    :name "国土交通省 自動車のリコール・不具合情報"
+    :class :mlit-recall-registry
+    :access :public-free
+    :url "https://www.mlit.go.jp/jidosha/carinf/rcl/index.html"}
    {:id :operator-licensed-dmv-feed
     :name "Operator-registered state DMV title/lien data-access credential"
     :class :operator-licensed-dmv-feed
     :access :operator-licensed
-    :url nil}])
+    :url nil}
+   {:id :operator-licensed-shakensho-feed
+    :name "Operator-registered 電子車検証 / AIRIS credential (JP title equivalent)"
+    :class :operator-licensed-shakensho-feed
+    :access :operator-licensed
+    :url "https://www.denshishakensho-portal.mlit.go.jp/"}])
 
 (def allowed-source-classes
   "Closed set — a class not in `catalog` (e.g. :inference, :seller-assertion,
@@ -52,17 +62,19 @@
   []
   {:source-count (count catalog)
    :free-public-sources (into #{} (map :id (filter #(not= :operator-licensed (:access %)) catalog)))
-   :note (str "R0 scope: NMVTIS one-report-per-VIN (federal, free) + NHTSA "
-              "recalls (federal, free) + 1 structural operator-licensed-dmv-"
-              "feed class for state-by-state lien records. Extend only by "
-              "appending a real, citable catalog entry or a real registered "
-              "dmv-license — never fabricate either.")})
+   :note (str "R0 scope: NMVTIS one-report-per-VIN (US federal, free) + NHTSA "
+              "recalls (US federal, free) + MLIT リコール・不具合情報 (JP, free) "
+              "+ 2 structural operator-licensed feed classes (US DMV title/lien "
+              "and JP 電子車検証/AIRIS). Extend only by appending a real, "
+              "citable catalog entry or a real registered feed credential — "
+              "never fabricate either.")})
 
 (defn class-allowed? [source-class]
   (contains? allowed-source-classes source-class))
 
 (defn licensed-dmv-class? [source-class]
-  (= :operator-licensed-dmv-feed source-class))
+  (contains? #{:operator-licensed-dmv-feed :operator-licensed-shakensho-feed}
+             source-class))
 
 (def odometer-exempt-model-year-age
   "U.S. federal Truth in Mileage Act / 49 CFR Part 580: vehicles of model
