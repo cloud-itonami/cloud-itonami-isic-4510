@@ -135,15 +135,27 @@
         :vintage-years 40
         :re-export-hub? true
         :steering-note "RHD country. JP steering matches. Do not invent an age cap; ITAC is permit-category, not year-of-registration."
-        :psi-label "NRCS Letter of Authority"}})
+        :psi-label "NRCS Letter of Authority"}
+   :lk {:iso :lk :label "スリランカ" :currency :lkr :steering :rhd
+        :dealer-license-required? true :inspection-required-on-sale? false
+        :inspection-name "DMT / revenue licence"
+        :export-doc "export certificate / logbook"
+        :homologation "Import Control License / Sri Lanka Customs"
+        :used-import :allowed-with-age-cap
+        :max-age-years 3
+        :age-basis :manufacture-year
+        :age-source "Gazette Extraordinary 2421/04 (Imports and Exports (Control) Regulations No. 01 of 2025): HS 8703 motor cars not more than three years old (manufacture date to bill of lading). Year-granular here; BL month is not modeled."
+        :used-import-source "Gazette 2421/04 lifted the temporary suspension of motor-vehicle imports from 2025-02. RHD required. CID + 50% surcharge (Gazette 2501/88) + PAL + CESS + excise + SSCL + VAT is not collapsed into one fixture rate."
+        :surcharge-label "CID の 50% surcharge（Gazette 2501/88、2026-08-15〜12-31）。CID 本体・PAL・CESS・物品税・SSCL・VAT は概算に載せない。"
+        :psi-label "assessment report (accepted institution)"}})
 
 (def jp-export-demand
   "Japan-origin used-vehicle export demand, calendar 2025. Secondary
   compilation (JUMV), not a live 財務省 extract. `:in-table?` is whether
   this actor will even attempt a quote. Russia is ranked but omitted
-  from `markets` because a sanctions list is operator input. Sri Lanka
-  / Thailand stay omitted until a sourced used-import regime + duty
-  row exists. South Africa is in-table as ITAC fail-closed + RIB transit."
+  from `markets` because a sanctions list is operator input. Thailand
+  stays omitted (used-import ban). Sri Lanka is in-table as a 3-year
+  manufacture cap with duty uncomputable."
   {:as-of "2025"
    :source "JUMV used-vehicle export ranking (compilation of Japan export counts)"
    :source-url "https://jumv.net/basic_knowledge_usedcar_export/export_statistics/statistics?year_from=2025"
@@ -165,9 +177,8 @@
            :note "年式上限は無い。関税 5%+VAT 10%。物品税（排気量×年式）は帯が割れるので欠落。"}
           {:rank 8 :iso :za :units 64555 :in-table? true
            :note "ITAC の中古輸入は許可制（本土での転売は不可）。数量の本体はダーバン RIB 通過。関税 25%+VAT 15% は例外が認めたときだけ。ATV 10% 上乗せと従価物品税は欠落。"}
-          {:rank 9 :iso :lk :units 62335 :in-table? false
-           :omit-reason :duty-schedule-deferred
-           :note "2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。"}
+          {:rank 9 :iso :lk :units 62335 :in-table? true
+           :note "2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。"}
           {:rank 10 :iso :th :units 48927 :in-table? false
            :omit-reason :used-import-banned
            :note "商務省通知で中古乗用車の国内向け輸入は原則禁止。再輸出・保税の可能性。"}]})
@@ -180,13 +191,15 @@
 (def jpy-per-unit
   "JPY per 1 unit of listing currency. Fixture, not a live FX feed.
   KES/TZS are omitted: East-Africa landed cost stays uncomputable.
-  CLP/MNT are sub-1 so `to-jpy`/`from-jpy` use double, not integer quot."
+  CLP/MNT/LKR are sub-1 so `to-jpy`/`from-jpy` use double, not integer quot."
   {:jpy 1 :usd 150 :eur 165 :gbp 190 :aud 100 :aed 41 :nzd 90 :cad 110 :sgd 112
-   :clp 0.16 :mnt 0.044 :zar 8})
+   :clp 0.16 :mnt 0.044 :zar 8 :lkr 0.5})
 
 (def duty-bps-by-dest
   "MFN passenger-car (HS 8703) duty in basis points. `nil` = no row.
-  KE/TZ have no row — TRA/KRA schedules are not invented.
+  KE/TZ/LK have no row — TRA/KRA/Sri Lanka CID+PAL+CESS+excise+SSCL
+  schedules are not invented as one rate. Gazette 2501/88's 50% CID
+  surcharge is a procedure label, not a landed fixture.
   CL 600 is the general 6% arancel when an exception admits the vehicle;
   ZOFRI re-export zeroes Chilean duty in `landed-cost`, not in this table.
   MN 500 is the 5% customs duty; automobile excise (age × cc) is a documented
@@ -195,14 +208,14 @@
   vehicle; RIB transit zeroes South African duty in `landed-cost`, not
   in this table. Ad valorem excise is a documented gap."
   {:jp 0 :us 250 :de 1000 :gb 1000 :au 500 :ae 500 :nz 0 :ca 620 :fr 1000
-   :sg nil :ke nil :tz nil :cl 600 :mn 500 :za 2500})
+   :sg nil :ke nil :tz nil :cl 600 :mn 500 :za 2500 :lk nil})
 
 (def vat-bps-by-dest
   "GST/VAT/消費税. US federal has none; state sales tax is a documented
   gap, not zeroed silently — `:us` vat-bps 0 with `:vat-gap :state-tax`.
-  `nil` = uncomputable (Singapore ARF/OMV; Kenya/Tanzania schedules)."
+  `nil` = uncomputable (Singapore ARF/OMV; Kenya/Tanzania/Sri Lanka schedules)."
   {:jp 1000 :us 0 :de 1900 :gb 2000 :au 1000 :ae 500 :nz 1500 :ca 500 :fr 2000
-   :sg nil :ke nil :tz nil :cl 1900 :mn 1000 :za 1500})
+   :sg nil :ke nil :tz nil :cl 1900 :mn 1000 :za 1500 :lk nil})
 
 (def freight-dest-minor
   "Ocean RoRo assumption, in *destination* whole currency units.
@@ -211,7 +224,7 @@
   {[:jp :au] 1800 [:jp :nz] 1600 [:jp :gb] 2200 [:jp :ae] 1400
    [:jp :us] 2500 [:jp :de] 2300 [:jp :ca] 2600 [:jp :fr] 2300 [:jp :sg] 1600
    [:jp :ke] 1800 [:jp :tz] 1900 [:jp :cl] 2000000 [:jp :mn] 7000000
-   [:jp :za] 35000
+   [:jp :za] 35000 [:jp :lk] 700000
    [:de :us] 1800 [:de :jp] 240000 [:de :gb] 900 [:de :fr] 400
    [:us :ca] 800 [:us :de] 1500 [:us :jp] 280000 [:us :gb] 1600
    [:gb :jp] 250000 [:gb :de] 700 [:gb :au] 2100
@@ -296,25 +309,34 @@
            (true? (:zofri-reexport? veh)))))
 
 (defn first-registration-year
-  "KS 1515 uses year of first registration. Demo rows that omit it fall
-  back to model year — a documented approximation, not a logbook."
+  "KS 1515 uses year of first registration. Demo rows that omit it
+  fall back to model year — a documented approximation, not a logbook."
   [veh]
   (or (:first-registration-year veh) (:year veh)))
 
+(defn age-year
+  "Gazette 2421/04 is manufacture-to-BL, so first-registration year
+  must not rescue an older manufacture year. KS 1515 stays YoR."
+  [veh dest]
+  (if (= :manufacture-year (:age-basis (market dest)))
+    (or (:manufacture-year veh) (:year veh))
+    (first-registration-year veh)))
+
 (defn min-first-registration-year
   "KEBS rolling calendar: 2024 notice allowed YoR 2017+, 2025 2018+.
-  min-yor = clock-year - (max-age-years - 1)."
+  min-yor = clock-year - (max-age-years - 1). Same formula for LK
+  manufacture-year (Gazette 2421/04); BL month is not modeled."
   [dest]
   (let [m (market dest)]
-    (when (and (= :first-registration-year (:age-basis m))
+    (when (and (contains? #{:first-registration-year :manufacture-year} (:age-basis m))
                (:max-age-years m))
       (- clock-year (dec (:max-age-years m))))))
 
 (defn age-ok?
   [veh dest]
   (let [min-y (min-first-registration-year dest)
-        yor (first-registration-year veh)]
-    (or (nil? min-y) (and yor (>= yor min-y)))))
+        y (age-year veh dest)]
+    (or (nil? min-y) (and y (>= y min-y)))))
 
 (defn vintage-unrestricted?
   "AU 25-year / CL 50-year / ZA 40-year collector paths. Not a SEVS listing."
@@ -357,7 +379,7 @@
     {:ok? true :reason :domestic :dest dest}
     (not (age-ok? veh dest))
     {:ok? false :reason :age-ineligible :dest dest
-     :yor (first-registration-year veh)
+     :yor (age-year veh dest)
      :min-yor (min-first-registration-year dest)
      :source (:age-source (market dest))}
     (not (regime-ok? veh dest))
@@ -412,6 +434,8 @@
         (conj {:id :itac-permit
                :label "中古輸入は ITAC 許可制。帰国者・永住移民 / 40年ヴィンテージ / 競技・相続等が例外。商業転売は不可。ダーバン RIB は通過。"
                :required? true})
+        (:surcharge-label d)
+        (conj {:id :cid-surcharge :label (:surcharge-label d) :required? true})
         true
         (conj {:id :steering :label (str "ハンドル位置 " (name (or (:steering o) :n-a))
                                         " → " (name (or (:steering d) :n-a)))

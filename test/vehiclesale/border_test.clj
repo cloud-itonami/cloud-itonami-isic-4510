@@ -54,6 +54,7 @@
 
 (deftest kenya-min-yor-is-2019-in-2026
   (is (= 2019 (border/min-first-registration-year :ke)))
+  (is (= 2024 (border/min-first-registration-year :lk)))
   (is (nil? (border/min-first-registration-year :tz)))
   (is (nil? (border/min-first-registration-year :nz))))
 
@@ -82,7 +83,7 @@
   (let [ru (first (filter #(= :ru (:iso %)) (:rows border/jp-export-demand)))]
     (is (false? (:in-table? ru)))
     (is (= :sanctions-operator-input (:omit-reason ru))))
-    (is (= [:ae :tz :cl :ke :nz :mn :za] (border/jp-demand-dests))))
+    (is (= [:ae :tz :cl :ke :nz :mn :za :lk] (border/jp-demand-dests))))
 
 (deftest corridor-board-shows-kenya-age-and-missing-duty
   (let [row (first (filter #(= :ke (:iso %)) (border/corridor-board (veh "JP-500"))))]
@@ -159,12 +160,12 @@
         th (first (filter #(= :th (:iso %)) rows))]
     (is (true? (:in-table? za)))
     (is (nil? (:omit-reason za)))
-    (is (false? (:in-table? lk)))
-    (is (= :duty-schedule-deferred (:omit-reason lk)))
+    (is (true? (:in-table? lk)))
+    (is (nil? (:omit-reason lk)))
     (is (false? (:in-table? th)))
     (is (= :used-import-banned (:omit-reason th)))
     (is (border/known-market? :za))
-    (is (not (border/known-market? :lk)))
+    (is (border/known-market? :lk))
     (is (not (border/known-market? :th)))))
 
 (deftest south-africa-itac-restricts-ordinary-jp-passenger
@@ -210,3 +211,30 @@
 (deftest zar-fx-is-conserved
   (is (= 1850000 (border/to-jpy 231250 :zar)))
   (is (= 231250 (border/from-jpy 1850000 :zar))))
+
+(deftest sri-lanka-three-year-manufacture-cap
+  (is (= :allowed-with-age-cap (get-in border/markets [:lk :used-import])))
+  (is (= :manufacture-year (get-in border/markets [:lk :age-basis])))
+  (is (false? (border/eligible? (prius) :lk)))
+  (is (= :age-ineligible (:reason (border/eligibility (prius) :lk))))
+  (is (false? (border/eligible? (veh "JP-500") :lk)))
+  (is (false? (border/eligible? (assoc (prius) :year 2023 :first-registration-year 2024) :lk)))
+  (is (true? (border/eligible? (assoc (prius) :year 2024 :first-registration-year 2024) :lk)))
+  (is (border/compatible-steering? :jp :lk))
+  (is (true? (border/steering-ok? (prius) :jp :lk))))
+
+(deftest sri-lanka-duty-is-not-invented
+  (let [fresh (assoc (prius) :year 2024)
+        q (border/landed-cost fresh :lk)]
+    (is (false? (:landed/computable? q)))
+    (is (= :duty-uncomputable (:landed/missing q)))))
+
+(deftest sri-lanka-procedure-labels-surcharge-and-age
+  (let [steps (border/procedure :jp :lk)]
+    (is (some #{:age-cap} (map :id steps)))
+    (is (some #{:cid-surcharge} (map :id steps)))
+    (is (some #{:pre-shipment-inspection} (map :id steps)))))
+
+(deftest lkr-fx-is-fractional
+  (is (= 1850000 (border/to-jpy 3700000 :lkr)))
+  (is (= 3700000 (border/from-jpy 1850000 :lkr))))

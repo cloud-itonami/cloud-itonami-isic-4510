@@ -464,3 +464,12 @@
     (is (= :commit (get-in res [:state :disposition])))
     (is (zero? (get-in q [:quote :landed/duty-bps])))
     (is (= :onward-destination-duty (get-in q [:quote :landed/vat-gap])))))
+
+(deftest sri-lanka-age-holds-ordinary-quote
+  (let [[db actor] (fresh)
+        res (exec-op actor "lk-age"
+                     {:op :border/quote :subject "JP-100" :vin "JP-100"
+                      :dest-country :lk}
+                     agent-p3)]
+    (is (= :hold (get-in res [:state :disposition])))
+    (is (some #{:import-age-gate} (-> (store/ledger db) first :basis)))))

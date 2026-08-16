@@ -5,10 +5,11 @@ a dealership/marketplace for new and used vehicles.
 
 The **product face** is a used-car search (`docs/index.html`) centred on
 Japan stock, then the highest-demand Japan-export destinations (UAE,
-Tanzania, Chile/ZOFRI, Kenya, New Zealand, Mongolia, South Africa/RIB). Filter by maker / country / export
+Tanzania, Chile/ZOFRI, Kenya, New Zealand, Mongolia, South Africa/RIB,
+Sri Lanka). Filter by maker / country / export
 destination eligibility / region / body / JPY-equivalent price /
 mileage. Open a listing to see KS 1515 age / SEVS / Ley 18.483 / Mongolia /
-ITAC eligibility
+ITAC / Gazette 2421/04 eligibility
 beside a landed-cost *estimate*. Search is a pure catalog read
 (`vehiclesale.catalog`). Writes still go through VehicleSale-LLM ⊣
 VehicleSaleGovernor.
@@ -101,6 +102,7 @@ Open `docs/index.html` (fragment SPA: `#search` / `#v/<vin>` / `#operator`).
 - Do not put Russia in the closed market table; sanctions lists are operator input.
 - Do not invent Mongolia's automobile excise matrix (age × cc tables disagree). Duty 5% + VAT 10% may still quote with that gap.
 - Do not treat ordinary JP passenger cars as South Africa-importable (ITAC permit). Durban Removal-in-Bond / returning-resident / 40-year vintage are the documented exceptions. Do not invent an age cap. SARS ATV 10% uplift and ad valorem excise are gaps, not zero.
-- Do not treat Thailand as an ordinary used-import destination (used-import ban). Sri Lanka's post-2025 tariff is not invented.
+- Do not quote a Sri Lanka import that fails Gazette 2421/04's three-year manufacture cap. Do not invent CID + PAL + CESS + excise + SSCL + VAT as one landed total; the 50% CID surcharge (Gazette 2501/88) is a procedure label.
+- Do not treat Thailand as an ordinary used-import destination (used-import ban).
 
 License: AGPL-3.0-or-later.
