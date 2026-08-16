@@ -35,7 +35,7 @@
    22. landed-uncomputable-gate
    23. tariff-conservation-gate
    24. hs-adjudication-gate
-   25. import-age-gate           (KS 1515 YoR cap)
+   25. import-age-gate           (KS 1515 YoR cap / LK Gazette 2421/04 3-year)
    26. import-regime-gate        (AU SEVS/RAWS / Chile Ley 18.483 / ZA ITAC)
    27. scope-exclusion-gate"
 
@@ -443,8 +443,9 @@
         :detail "HS を確定分類として提案した。候補のみ許可。"}])))
 
 (defn- import-age-violations
-  "KS 1515 eight-year YoR cap. A missing KRA tariff does not hide an
-  ineligible year — eligibility is checked on its own."
+  "KS 1515 eight-year YoR cap, or Gazette 2421/04 three-year manufacture
+  cap. A missing tariff does not hide an ineligible year — eligibility
+  is checked on its own."
   [{:keys [op]} proposal st]
   (when (contains? #{:sale/confirm :border/quote} op)
     (let [veh (veh-of proposal st)

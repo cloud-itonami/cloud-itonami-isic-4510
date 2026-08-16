@@ -92,3 +92,6 @@
 
 (deftest export-dest-za-drops-ordinary-passenger
   (is (empty? (catalog/search (listings) {:export-dest :za}))))
+
+(deftest export-dest-lk-drops-over-three-year-manufacture
+  (is (empty? (catalog/search (listings) {:export-dest :lk}))))

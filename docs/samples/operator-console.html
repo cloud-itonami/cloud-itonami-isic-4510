@@ -2747,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', function(){
       </nav>
       <section class="view is-active" id="view-search" data-view="search">
         <h2 class="dads-heading" data-size="32">中古車を探す</h2>
-        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル / 南ア）から適格判定する。架空の在庫です。通関申告はしません。</p>
+        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル / 南ア / スリランカ）から適格判定する。架空の在庫です。通関申告はしません。</p>
         <h3 class="dads-heading" data-size="24">日本からの中古車輸出需要（2025）</h3>
         <div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -2817,10 +2817,10 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>除外: duty-schedule-deferred</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>見積対象</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -2831,7 +2831,7 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
           </tbody></table>
         </div>
-        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。南アの中古輸入は ITAC 許可制（ダーバン RIB 通過が数量の本体）。タイは制度上閉じる。ロシアは載せない。</p>
+        <p class="muted">総計 1,714,279 台。出典は JUMV の二次集計（2025）。チリ本土の中古輸入は Ley 18.483 で禁止（ZOFRI再輸出が数量の本体）。南アの中古輸入は ITAC 許可制（ダーバン RIB 通過が数量の本体）。スリランカは製造3年（Gazette 2421/04）。タイは制度上閉じる。ロシアは載せない。</p>
         <form class="filter-row" id="search-form" action="#" onsubmit="return false;">
           <label>キーワード<input type="search" id="q" name="q" placeholder="メーカー・車種・国・地域"></label>
           <label>メーカー<span class="dads-select"><span class="dads-select__control">
@@ -2858,6 +2858,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="ca">カナダ</option>
               <option value="tz">タンザニア</option>
               <option value="jp">日本</option>
+              <option value="lk">スリランカ</option>
               <option value="us">アメリカ合衆国</option>
               <option value="sg">シンガポール</option>
               <option value="nz">ニュージーランド</option>
@@ -2881,6 +2882,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <option value="nz">ニュージーランド</option>
               <option value="mn">モンゴル</option>
               <option value="za">南アフリカ</option>
+              <option value="lk">スリランカ</option>
             </select>
             <svg class="dads-select__chevron" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 17L3 8L4 7L12 15L20 7L21 8L12 17Z" fill="currentcolor"></path>
@@ -3135,11 +3137,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>duty-uncomputable</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -3487,11 +3489,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>duty-uncomputable</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -3839,11 +3841,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>duty-uncomputable</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -4191,11 +4193,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>duty-uncomputable</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -4507,11 +4509,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>missing-freight-corridor</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -4756,11 +4758,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>missing-freight-corridor</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -4982,11 +4984,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>missing-freight-corridor</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -5235,11 +5237,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>missing-freight-corridor</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -5461,11 +5463,11 @@ document.addEventListener('DOMContentLoaded', function(){
             </tr>
             <tr>
               <td>9</td>
-              <td>lk (lk)</td>
+              <td>スリランカ (lk)</td>
               <td>62,335</td>
-              <td>市場表に無い: duty-schedule-deferred</td>
-              <td>—</td>
-              <td>2025-02 に輸入再開。付加税が重く、税率表をこのスライスでは載せない。</td>
+              <td>age-ineligible</td>
+              <td>missing-freight-corridor</td>
+              <td>2025-02 に輸入再開。製造から 3年（Gazette 2421/04）。関税は CID+付加税が重く、税率を1本に畳まない。</td>
             </tr>
             <tr>
               <td>10</td>
@@ -5750,6 +5752,12 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>JP-100</td>
               <td>import-regime-gate</td>
               <td>中古輸入制度に該当しない: dest=:za regime=:restricted-itac-used source=gov.za + ITAC used/second-hand vehicle guidelines: used import is permit-only. Documented exceptions: returning resident / immigrant PR, vintage 40+, racing / inherited / specially designed. Commercial resale is not a path. JUMV volume is treated as Durban Removal-in-Bond transit, not mainland used-import.</td>
+            </tr>
+            <tr>
+              <th class="dads-table__row-header" scope="row">quote</th>
+              <td>JP-100</td>
+              <td>landed-uncomputable-gate, import-age-gate</td>
+              <td>関税概算が計算できない: dest=:lk missing=:duty-uncomputable</td>
             </tr>
             <tr>
               <th class="dads-table__row-header" scope="row">list</th>
@@ -6085,6 +6093,12 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>quote</td>
               <td>JP-100</td>
               <td>vin, dest-country</td>
+            </tr>
+            <tr>
+              <td>policy-hold</td>
+              <td>quote</td>
+              <td>JP-100</td>
+              <td>landed-uncomputable-gate, import-age-gate</td>
             </tr>
             <tr>
               <td>policy-hold</td>

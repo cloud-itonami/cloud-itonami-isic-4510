@@ -33,7 +33,7 @@
 
 (def currency-prefix
   {:jpy "¥" :usd "$" :eur "€" :gbp "£" :aud "A$" :aed "AED "
-   :nzd "NZ$" :cad "C$" :sgd "S$" :kes "KSh " :tzs "TSh " :clp "CLP " :mnt "₮" :zar "R"})
+   :nzd "NZ$" :cad "C$" :sgd "S$" :kes "KSh " :tzs "TSh " :clp "CLP " :mnt "₮" :zar "R" :lkr "Rs "})
 
 (defn grouped-int
   "Thousands-separated integer. Used for yen and for km."
