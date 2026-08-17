@@ -2682,6 +2682,13 @@ body { padding-left: env(safe-area-inset-left,0px); padding-right: env(safe-area
 .filter-row{display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0 0 1rem}
 .filter-row label{display:flex;flex-direction:column;font-size:0.875rem;gap:0.25rem}
 .muted{color:var(--color-neutral-solid-gray-600)}
+.badge{display:inline-block;margin:0 0.25rem 0 0;padding:0.1rem 0.4rem;border:1px solid var(--color-neutral-solid-gray-200);font-size:0.75rem}
+.live-form{display:flex;flex-direction:column;gap:0.5rem;max-width:24rem;margin:0 0 1.5rem}
+.needs-serve{display:none}
+body.is-live .needs-serve{display:block}
+body.is-live form.live-form.needs-serve{display:flex}
+body.is-live .needs-file{display:none}
+.live-form label{display:flex;flex-direction:column;gap:0.25rem;font-size:0.875rem}
 .ok{color:var(--color-success-900,#0b7a3b)}
 .critical{color:var(--color-error-900,#c52828)}
 .warn{color:var(--color-warning-900,#8a5a00)}</style><script>function showView(name){
@@ -2724,6 +2731,80 @@ function applyFilters(){
   var el=document.getElementById('result-count');
   if(el) el.textContent=n+' 件';
 }
+function ednStr(s,k){
+  var needle=':'+k+' "';
+  var i=String(s).indexOf(needle);
+  if(i<0) return null;
+  var rest=String(s).slice(i+needle.length);
+  var end=rest.indexOf('"');
+  return end<0?null:rest.slice(0,end);
+}
+function ednOk(s){ return /:ok true/.test(String(s)); }
+function token(){ return sessionStorage.getItem('itonami-4510-token'); }
+function setToken(t){ if(t) sessionStorage.setItem('itonami-4510-token', t); }
+function api(path, form){
+  var headers={'Accept':'application/edn'};
+  var t=token();
+  if(t) headers['Authorization']='Bearer '+t;
+  var opts={method: form?'POST':'GET', headers:headers, credentials:'same-origin'};
+  if(form){
+    headers['Content-Type']='application/x-www-form-urlencoded';
+    opts.body=new URLSearchParams(new FormData(form)).toString();
+  }
+  return fetch(path, opts).then(function(r){
+    return r.text().then(function(text){ return {ok:r.ok, text:text, status:r.status}; });
+  });
+}
+function flash(text){
+  var el=document.getElementById('live-flash');
+  if(el) el.textContent=text;
+}
+function bindLiveForms(){
+  document.querySelectorAll('form[data-live]').forEach(function(form){
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var kind=form.getAttribute('data-live');
+      var path={register:'/api/register',login:'/api/login',logout:'/api/logout',
+                inquiry:'/api/inquiry',reply:'/api/reply',list:'/api/list',deal:'/api/deal'}[kind];
+      if(kind==='inquiry' || kind==='deal'){
+        var vin=form.getAttribute('data-vin');
+        var extra=document.createElement('input');
+        extra.type='hidden'; extra.name='vin'; extra.value=vin;
+        form.appendChild(extra);
+      }
+      api(path, form).then(function(res){
+        var tok=ednStr(res.text,'token');
+        if(tok) setToken(tok);
+        if(ednOk(res.text) || res.ok){
+          if(kind==='logout'){ sessionStorage.removeItem('itonami-4510-token'); }
+          flash('ok');
+          location.hash = (kind==='register'||kind==='login') ? '#inbox' : (kind==='list' ? '#search' : location.hash);
+          location.reload();
+        } else {
+          flash(res.text || ('error '+res.status));
+        }
+      }).catch(function(err){ flash(String(err)); });
+    });
+  });
+}
+function bootLive(){
+  fetch('/api/health').then(function(r){
+    if(!r.ok) throw new Error('no api');
+    document.body.classList.add('is-live');
+    document.querySelectorAll('.needs-serve').forEach(function(el){ el.hidden=false; });
+    document.querySelectorAll('.needs-file').forEach(function(el){ el.hidden=true; });
+    bindLiveForms();
+    return api('/api/me');
+  }).then(function(res){
+    if(!res) return;
+    var h=ednStr(res.text,'handle');
+    var el=document.getElementById('whoami');
+    if(el && h) el.textContent='ログイン中: '+h;
+  }).catch(function(){
+    document.querySelectorAll('.needs-serve').forEach(function(el){ el.hidden=true; });
+    document.querySelectorAll('.needs-file').forEach(function(el){ el.hidden=false; });
+  });
+}
 window.addEventListener('hashchange', applyHash);
 document.addEventListener('DOMContentLoaded', function(){
   applyHash();
@@ -2734,20 +2815,25 @@ document.addEventListener('DOMContentLoaded', function(){
     form.addEventListener('input', applyFilters);
     applyFilters();
   }
+  bootLive();
 });</script></head>
   <body>
     <div class="dds-ext-container">
       <header>
         <h1 class="dads-heading" data-size="45">中古車マーケット</h1>
-        <p class="muted">cloud-itonami-isic-4510 · 日本の在庫を中心に、需要の高い仕向地から適格判定する。送金しない。通関申告しない。</p>
+        <p class="muted">cloud-itonami-isic-4510 · 日本の在庫を中心に、需要の高い仕向地から適格判定する。送金しない。通関申告しない。デモ在庫は販売しない。</p>
+        <p id="live-flash" class="ok"></p>
       </header>
       <nav class="site-nav" aria-label="ページ内">
         <a class="dads-button" data-type="solid-fill" data-size="md" href="#search">在庫を探す</a>
+        <a class="dads-button" data-type="outline" data-size="md" href="#account">登録</a>
+        <a class="dads-button" data-type="outline" data-size="md" href="#inbox">受信箱</a>
+        <a class="dads-button" data-type="outline" data-size="md" href="#list">出品する</a>
         <a class="dads-button" data-type="outline" data-size="md" href="#operator">出品コンソール</a>
       </nav>
       <section class="view is-active" id="view-search" data-view="search">
         <h2 class="dads-heading" data-size="32">中古車を探す</h2>
-        <p class="muted">掲載 9 台。日本の在庫を先に、需要の高い仕向地（UAE / タンザニア / チリ / ケニア / NZ / モンゴル / 南ア / スリランカ）から適格判定する。架空の在庫です。通関申告はしません。</p>
+        <p class="muted">掲載 9 台。デモ在庫は検索の見本。実取引は登録した出品に対してのみ。代金の送金はこの面では実行しない。自己申告出品は電子車検証フィードではない。</p>
         <h3 class="dads-heading" data-size="24">日本からの中古車輸出需要（2025）</h3>
         <div class="dads-table">
           <table class="dads-table__table"><thead>
@@ -2926,7 +3012,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2021年 · 32,000 km · 東京都 · 日本</p>
             <p class="meta">セダン · ハイブリッド · 修復歴なし</p>
             <p class="meta">維持費概算 ¥257,839 · スキャン完了</p>
-            <p class="meta">デモモータース東京</p>
+            <p class="meta"><span class="badge">デモ在庫</span>デモモータース東京</p>
           </a>
           <a data-price="980000" data-year="2019" data-mileage="51000" data-q="ホンダ フィット HOME 大阪府 日本" data-body="hatch" data-vin="JP-200" data-prefecture="osaka" data-make="ホンダ" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-200">
             <h3 class="dads-heading" data-size="20">ホンダ フィット HOME</h3>
@@ -2934,7 +3020,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2019年 · 51,000 km · 大阪府 · 日本</p>
             <p class="meta">ハッチバック · ガソリン · 修復歴なし</p>
             <p class="meta">維持費概算 ¥272,577 · スキャン完了</p>
-            <p class="meta">デモオート大阪</p>
+            <p class="meta"><span class="badge">デモ在庫</span>デモオート大阪</p>
           </a>
           <a data-price="1280000" data-year="2018" data-mileage="78000" data-q="日産 セレナ XV 福岡県 日本" data-body="minivan" data-vin="JP-300" data-prefecture="fukuoka" data-make="日産" data-export="ae,tz,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-300">
             <h3 class="dads-heading" data-size="20">日産 セレナ XV</h3>
@@ -2942,7 +3028,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2018年 · 78,000 km · 福岡県 · 日本</p>
             <p class="meta">ミニバン · ガソリン · 修復歴あり</p>
             <p class="meta">維持費概算 ¥327,150 · スキャン完了</p>
-            <p class="meta">デモカー福岡</p>
+            <p class="meta"><span class="badge">デモ在庫</span>デモカー福岡</p>
           </a>
           <a data-price="450000" data-year="2016" data-mileage="120000" data-q="スバル インプレッサ 1.6i 北海道 日本" data-body="sedan" data-vin="JP-500" data-prefecture="hokkaido" data-make="スバル" data-export="ae,tz,nz,mn" class="listing-card dds-ext-card" data-country="jp" href="#v/JP-500">
             <h3 class="dads-heading" data-size="20">スバル インプレッサ 1.6i</h3>
@@ -2950,7 +3036,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2016年 · 120,000 km · 北海道 · 日本</p>
             <p class="meta">セダン · ガソリン · 修復歴あり</p>
             <p class="meta">維持費概算 ¥303,375 · スキャン不足</p>
-            <p class="meta">デモ自動車札幌</p>
+            <p class="meta"><span class="badge">デモ在庫</span>デモ自動車札幌</p>
           </a>
           <a data-price="3591000" data-year="2021" data-mileage="28000" data-q="MINI Cooper Classic  イギリス" data-body="hatch" data-vin="GB-100" data-make="MINI" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="gb" href="#v/GB-100">
             <h3 class="dads-heading" data-size="20">MINI Cooper Classic</h3>
@@ -2958,7 +3044,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2021年 · 28,000 km · イギリス · イギリス</p>
             <p class="meta">ハッチバック · ガソリン · 修復歴なし</p>
             <p class="meta">スキャン完了</p>
-            <p class="meta">Demo Motors London</p>
+            <p class="meta"><span class="badge">デモ在庫</span>Demo Motors London</p>
           </a>
           <a data-price="5945000" data-year="2021" data-mileage="35000" data-q="日産 パトロール SE  アラブ首長国連邦" data-body="suv" data-vin="AE-100" data-make="日産" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="ae" href="#v/AE-100">
             <h3 class="dads-heading" data-size="20">日産 パトロール SE</h3>
@@ -2966,7 +3052,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2021年 · 35,000 km · アラブ首長国連邦 · アラブ首長国連邦</p>
             <p class="meta">SUV · ガソリン · 修復歴なし</p>
             <p class="meta">スキャン完了</p>
-            <p class="meta">Demo Motors Dubai</p>
+            <p class="meta"><span class="badge">デモ在庫</span>Demo Motors Dubai</p>
           </a>
           <a data-price="4702500" data-year="2020" data-mileage="42000" data-q="BMW 320d M Sport  ドイツ" data-body="sedan" data-vin="DE-100" data-make="BMW" data-export="mn" class="listing-card dds-ext-card" data-country="de" href="#v/DE-100">
             <h3 class="dads-heading" data-size="20">BMW 320d M Sport</h3>
@@ -2974,7 +3060,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2020年 · 42,000 km · ドイツ · ドイツ</p>
             <p class="meta">セダン · ディーゼル · 修復歴なし</p>
             <p class="meta">スキャン完了</p>
-            <p class="meta">Demo Autohaus München</p>
+            <p class="meta"><span class="badge">デモ在庫</span>Demo Autohaus München</p>
           </a>
           <a data-price="4200000" data-year="2019" data-mileage="64000" data-q="トヨタ ハイラックス SR5  オーストラリア" data-body="suv" data-vin="AU-100" data-make="トヨタ" data-export="ae,tz,ke,nz,mn" class="listing-card dds-ext-card" data-country="au" href="#v/AU-100">
             <h3 class="dads-heading" data-size="20">トヨタ ハイラックス SR5</h3>
@@ -2982,7 +3068,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2019年 · 64,000 km · オーストラリア · オーストラリア</p>
             <p class="meta">SUV · ディーゼル · 修復歴なし</p>
             <p class="meta">スキャン完了</p>
-            <p class="meta">Demo Motors Sydney</p>
+            <p class="meta"><span class="badge">デモ在庫</span>Demo Motors Sydney</p>
           </a>
           <a data-price="1305000" data-year="2018" data-mileage="62000" data-q="トヨタ アクア S  ニュージーランド" data-body="hatch" data-vin="NZ-100" data-make="トヨタ" data-export="ae,tz,nz,mn" class="listing-card dds-ext-card" data-country="nz" href="#v/NZ-100">
             <h3 class="dads-heading" data-size="20">トヨタ アクア S</h3>
@@ -2990,12 +3076,12 @@ document.addEventListener('DOMContentLoaded', function(){
             <p class="meta">2018年 · 62,000 km · ニュージーランド · ニュージーランド</p>
             <p class="meta">ハッチバック · ハイブリッド · 修復歴なし</p>
             <p class="meta">スキャン完了</p>
-            <p class="meta">Demo Motors Auckland</p>
+            <p class="meta"><span class="badge">デモ在庫</span>Demo Motors Auckland</p>
           </a>
         </div>
       </section>
       <div>
-        <section class="view" id="view-JP-100" data-view="v/JP-100"><h2 class="dads-heading" data-size="32">トヨタ プリウス S</h2><p class="price">¥1,850,000</p><dl class="spec-dl"><dt>年式</dt><dd>2021年</dd><dt>走行距離</dt><dd>32,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>東京都</dd><dt>ボディ</dt><dd>セダン</dd><dt>燃料</dt><dd>ハイブリッド</dd><dt>検査満了</dt><dd>2027-04</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 5</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1350 kg</dd><dt>寸法</dt><dd>4540×1760×1470 mm</dd><dt>販売店</dt><dd>デモモータース東京</dd><dt>古物商許可</dt><dd>東京都公安委員会 第301019900001号</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>JP-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        <section class="view" id="view-JP-100" data-view="v/JP-100"><h2 class="dads-heading" data-size="32">トヨタ プリウス S</h2><p class="price">¥1,850,000</p><dl class="spec-dl"><dt>年式</dt><dd>2021年</dd><dt>走行距離</dt><dd>32,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>東京都</dd><dt>ボディ</dt><dd>セダン</dd><dt>燃料</dt><dd>ハイブリッド</dd><dt>検査満了</dt><dd>2027-04</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 5</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1350 kg</dd><dt>寸法</dt><dd>4540×1760×1470 mm</dd><dt>出品者</dt><dd>デモモータース東京</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>古物商許可</dt><dd>東京都公安委員会 第301019900001号</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>JP-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -3346,8 +3432,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-JP-200" data-view="v/JP-200"><h2 class="dads-heading" data-size="32">ホンダ フィット HOME</h2><p class="price">¥980,000</p><dl class="spec-dl"><dt>年式</dt><dd>2019年</dd><dt>走行距離</dt><dd>51,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>大阪府</dd><dt>ボディ</dt><dd>ハッチバック</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2026-11</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 5</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1080 kg</dd><dt>寸法</dt><dd>3990×1695×1520 mm</dd><dt>販売店</dt><dd>デモオート大阪</dd><dt>古物商許可</dt><dd>大阪府公安委員会 第621019900002号</dd><dt>預かり</dt><dd>at-lot</dd><dt>エスクロー</dt><dd>open</dd><dt>出品ID</dt><dd>JP-200</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-JP-200" data-view="v/JP-200"><h2 class="dads-heading" data-size="32">ホンダ フィット HOME</h2><p class="price">¥980,000</p><dl class="spec-dl"><dt>年式</dt><dd>2019年</dd><dt>走行距離</dt><dd>51,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>大阪府</dd><dt>ボディ</dt><dd>ハッチバック</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2026-11</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 5</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1080 kg</dd><dt>寸法</dt><dd>3990×1695×1520 mm</dd><dt>出品者</dt><dd>デモオート大阪</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>古物商許可</dt><dd>大阪府公安委員会 第621019900002号</dd><dt>預かり</dt><dd>at-lot</dd><dt>エスクロー</dt><dd>open</dd><dt>出品ID</dt><dd>JP-200</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -3698,8 +3786,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-JP-300" data-view="v/JP-300"><h2 class="dads-heading" data-size="32">日産 セレナ XV</h2><p class="price">¥1,280,000</p><dl class="spec-dl"><dt>年式</dt><dd>2018年</dd><dt>走行距離</dt><dd>78,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>福岡県</dd><dt>ボディ</dt><dd>ミニバン</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2025-12</dd><dt>修復歴</dt><dd>修復歴あり</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 8</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1680 kg</dd><dt>寸法</dt><dd>4770×1740×1865 mm</dd><dt>販売店</dt><dd>デモカー福岡</dd><dt>古物商許可</dt><dd>福岡県公安委員会 第401019900003号</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>JP-300</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-JP-300" data-view="v/JP-300"><h2 class="dads-heading" data-size="32">日産 セレナ XV</h2><p class="price">¥1,280,000</p><dl class="spec-dl"><dt>年式</dt><dd>2018年</dd><dt>走行距離</dt><dd>78,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>福岡県</dd><dt>ボディ</dt><dd>ミニバン</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2025-12</dd><dt>修復歴</dt><dd>修復歴あり</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 8</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1680 kg</dd><dt>寸法</dt><dd>4770×1740×1865 mm</dd><dt>出品者</dt><dd>デモカー福岡</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>古物商許可</dt><dd>福岡県公安委員会 第401019900003号</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>JP-300</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -4050,8 +4140,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-JP-500" data-view="v/JP-500"><h2 class="dads-heading" data-size="32">スバル インプレッサ 1.6i</h2><p class="price">¥450,000</p><dl class="spec-dl"><dt>年式</dt><dd>2016年</dd><dt>走行距離</dt><dd>120,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>北海道</dd><dt>ボディ</dt><dd>セダン</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2026-08</dd><dt>修復歴</dt><dd>修復歴あり</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>4 / 5</dd><dt>駆動</dt><dd>4WD</dd><dt>車両重量</dt><dd>1280 kg</dd><dt>寸法</dt><dd>4580×1740×1465 mm</dd><dt>販売店</dt><dd>デモ自動車札幌</dd><dt>古物商許可</dt><dd>北海道公安委員会 第101019900005号</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>JP-500</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-JP-500" data-view="v/JP-500"><h2 class="dads-heading" data-size="32">スバル インプレッサ 1.6i</h2><p class="price">¥450,000</p><dl class="spec-dl"><dt>年式</dt><dd>2016年</dd><dt>走行距離</dt><dd>120,000 km</dd><dt>国</dt><dd>日本</dd><dt>地域</dt><dd>北海道</dd><dt>ボディ</dt><dd>セダン</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2026-08</dd><dt>修復歴</dt><dd>修復歴あり</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>4 / 5</dd><dt>駆動</dt><dd>4WD</dd><dt>車両重量</dt><dd>1280 kg</dd><dt>寸法</dt><dd>4580×1740×1465 mm</dd><dt>出品者</dt><dd>デモ自動車札幌</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>古物商許可</dt><dd>北海道公安委員会 第101019900005号</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>JP-500</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell is-missing">
             <div>ダッシュボード</div>
             <div class="muted">未撮影</div>
@@ -4402,8 +4494,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-GB-100" data-view="v/GB-100"><h2 class="dads-heading" data-size="32">MINI Cooper Classic</h2><p class="price">£18,900</p><dl class="spec-dl"><dt>年式</dt><dd>2021年</dd><dt>走行距離</dt><dd>28,000 km</dd><dt>国</dt><dd>イギリス</dd><dt>地域</dt><dd>イギリス</dd><dt>ボディ</dt><dd>ハッチバック</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2027-01</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>3 / 4</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1160 kg</dd><dt>寸法</dt><dd>3850×1727×1414 mm</dd><dt>販売店</dt><dd>Demo Motors London</dd><dt>販売免許</dt><dd>GB-DVLA-DEMO-MINI</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>GB-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-GB-100" data-view="v/GB-100"><h2 class="dads-heading" data-size="32">MINI Cooper Classic</h2><p class="price">£18,900</p><dl class="spec-dl"><dt>年式</dt><dd>2021年</dd><dt>走行距離</dt><dd>28,000 km</dd><dt>国</dt><dd>イギリス</dd><dt>地域</dt><dd>イギリス</dd><dt>ボディ</dt><dd>ハッチバック</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2027-01</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>3 / 4</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1160 kg</dd><dt>寸法</dt><dd>3850×1727×1414 mm</dd><dt>出品者</dt><dd>Demo Motors London</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>販売免許</dt><dd>GB-DVLA-DEMO-MINI</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>GB-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -4651,8 +4745,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-AE-100" data-view="v/AE-100"><h2 class="dads-heading" data-size="32">日産 パトロール SE</h2><p class="price">AED 145,000</p><dl class="spec-dl"><dt>年式</dt><dd>2021年</dd><dt>走行距離</dt><dd>35,000 km</dd><dt>国</dt><dd>アラブ首長国連邦</dd><dt>地域</dt><dd>アラブ首長国連邦</dd><dt>ボディ</dt><dd>SUV</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2026-12</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 7</dd><dt>駆動</dt><dd>4WD</dd><dt>車両重量</dt><dd>2735 kg</dd><dt>寸法</dt><dd>5175×1995×1940 mm</dd><dt>販売店</dt><dd>Demo Motors Dubai</dd><dt>販売免許</dt><dd>UAE-RTA-DEMO-PATROL</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>AE-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-AE-100" data-view="v/AE-100"><h2 class="dads-heading" data-size="32">日産 パトロール SE</h2><p class="price">AED 145,000</p><dl class="spec-dl"><dt>年式</dt><dd>2021年</dd><dt>走行距離</dt><dd>35,000 km</dd><dt>国</dt><dd>アラブ首長国連邦</dd><dt>地域</dt><dd>アラブ首長国連邦</dd><dt>ボディ</dt><dd>SUV</dd><dt>燃料</dt><dd>ガソリン</dd><dt>検査満了</dt><dd>2026-12</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 7</dd><dt>駆動</dt><dd>4WD</dd><dt>車両重量</dt><dd>2735 kg</dd><dt>寸法</dt><dd>5175×1995×1940 mm</dd><dt>出品者</dt><dd>Demo Motors Dubai</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>販売免許</dt><dd>UAE-RTA-DEMO-PATROL</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>AE-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -4877,8 +4973,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-DE-100" data-view="v/DE-100"><h2 class="dads-heading" data-size="32">BMW 320d M Sport</h2><p class="price">€28,500</p><dl class="spec-dl"><dt>年式</dt><dd>2020年</dd><dt>走行距離</dt><dd>42,000 km</dd><dt>国</dt><dd>ドイツ</dd><dt>地域</dt><dd>ドイツ</dd><dt>ボディ</dt><dd>セダン</dd><dt>燃料</dt><dd>ディーゼル</dd><dt>検査満了</dt><dd>2026-11</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>lhd</dd><dt>ドア / 定員</dt><dd>4 / 5</dd><dt>駆動</dt><dd>FR</dd><dt>車両重量</dt><dd>1545 kg</dd><dt>寸法</dt><dd>4709×1827×1442 mm</dd><dt>販売店</dt><dd>Demo Autohaus München</dd><dt>販売免許</dt><dd>DE-KBA-DEMO-320d</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>DE-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-DE-100" data-view="v/DE-100"><h2 class="dads-heading" data-size="32">BMW 320d M Sport</h2><p class="price">€28,500</p><dl class="spec-dl"><dt>年式</dt><dd>2020年</dd><dt>走行距離</dt><dd>42,000 km</dd><dt>国</dt><dd>ドイツ</dd><dt>地域</dt><dd>ドイツ</dd><dt>ボディ</dt><dd>セダン</dd><dt>燃料</dt><dd>ディーゼル</dd><dt>検査満了</dt><dd>2026-11</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>lhd</dd><dt>ドア / 定員</dt><dd>4 / 5</dd><dt>駆動</dt><dd>FR</dd><dt>車両重量</dt><dd>1545 kg</dd><dt>寸法</dt><dd>4709×1827×1442 mm</dd><dt>出品者</dt><dd>Demo Autohaus München</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>販売免許</dt><dd>DE-KBA-DEMO-320d</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>DE-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -5130,8 +5228,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-AU-100" data-view="v/AU-100"><h2 class="dads-heading" data-size="32">トヨタ ハイラックス SR5</h2><p class="price">A$42,000</p><dl class="spec-dl"><dt>年式</dt><dd>2019年</dd><dt>走行距離</dt><dd>64,000 km</dd><dt>国</dt><dd>オーストラリア</dd><dt>地域</dt><dd>オーストラリア</dd><dt>ボディ</dt><dd>SUV</dd><dt>燃料</dt><dd>ディーゼル</dd><dt>検査満了</dt><dd>2026-10</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>4 / 5</dd><dt>駆動</dt><dd>4WD</dd><dt>車両重量</dt><dd>2060 kg</dd><dt>寸法</dt><dd>5325×1900×1815 mm</dd><dt>販売店</dt><dd>Demo Motors Sydney</dd><dt>販売免許</dt><dd>NSW-MDL-DEMO-HILUX</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>AU-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-AU-100" data-view="v/AU-100"><h2 class="dads-heading" data-size="32">トヨタ ハイラックス SR5</h2><p class="price">A$42,000</p><dl class="spec-dl"><dt>年式</dt><dd>2019年</dd><dt>走行距離</dt><dd>64,000 km</dd><dt>国</dt><dd>オーストラリア</dd><dt>地域</dt><dd>オーストラリア</dd><dt>ボディ</dt><dd>SUV</dd><dt>燃料</dt><dd>ディーゼル</dd><dt>検査満了</dt><dd>2026-10</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>4 / 5</dd><dt>駆動</dt><dd>4WD</dd><dt>車両重量</dt><dd>2060 kg</dd><dt>寸法</dt><dd>5325×1900×1815 mm</dd><dt>出品者</dt><dd>Demo Motors Sydney</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>販売免許</dt><dd>NSW-MDL-DEMO-HILUX</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>AU-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -5356,8 +5456,10 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
-        <section class="view" id="view-NZ-100" data-view="v/NZ-100"><h2 class="dads-heading" data-size="32">トヨタ アクア S</h2><p class="price">NZ$14,500</p><dl class="spec-dl"><dt>年式</dt><dd>2018年</dd><dt>走行距離</dt><dd>62,000 km</dd><dt>国</dt><dd>ニュージーランド</dd><dt>地域</dt><dd>ニュージーランド</dd><dt>ボディ</dt><dd>ハッチバック</dd><dt>燃料</dt><dd>ハイブリッド</dd><dt>検査満了</dt><dd>2026-09</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 5</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1080 kg</dd><dt>寸法</dt><dd>3995×1695×1445 mm</dd><dt>販売店</dt><dd>Demo Motors Auckland</dd><dt>販売免許</dt><dd>NZ-MVR-DEMO-AQUA</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>NZ-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        <section class="view" id="view-NZ-100" data-view="v/NZ-100"><h2 class="dads-heading" data-size="32">トヨタ アクア S</h2><p class="price">NZ$14,500</p><dl class="spec-dl"><dt>年式</dt><dd>2018年</dd><dt>走行距離</dt><dd>62,000 km</dd><dt>国</dt><dd>ニュージーランド</dd><dt>地域</dt><dd>ニュージーランド</dd><dt>ボディ</dt><dd>ハッチバック</dd><dt>燃料</dt><dd>ハイブリッド</dd><dt>検査満了</dt><dd>2026-09</dd><dt>修復歴</dt><dd>修復歴なし</dd><dt>ハンドル</dt><dd>rhd</dd><dt>ドア / 定員</dt><dd>5 / 5</dd><dt>駆動</dt><dd>FF</dd><dt>車両重量</dt><dd>1080 kg</dd><dt>寸法</dt><dd>3995×1695×1445 mm</dd><dt>出品者</dt><dd>Demo Motors Auckland</dd><dt>出品区分</dt><dd>デモ在庫（販売対象外）</dd><dt>販売免許</dt><dd>NZ-MVR-DEMO-AQUA</dd><dt>預かり</dt><dd>at-dealer</dd><dt>エスクロー</dt><dd>未開設</dd><dt>出品ID</dt><dd>NZ-100</dd></dl><h3 class="dads-heading" data-size="24">カメラスキャン</h3><div class="scan-grid">
           <div class="scan-cell">
             <div>ダッシュボード</div>
             <div class="muted">撮影済み（デモCID）</div>
@@ -5582,8 +5684,90 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>年間維持費の内訳</td>
             </tr>
           </tbody></table>
-        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><a class="dads-button" data-type="solid-fill" data-size="md" href="#operator">販売店へ問い合わせる（デモ）</a><p class="muted">問い合わせ・エスクロー開設・預かり更新・国境概算は VehicleSaleGovernor を通る。この actor は送金せず、通関申告もしない。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
+        </div><p class="muted">facilitator https://x402.nexus · 1 seller 精算プラン 手数料 300 bps · execute? false</p><div class="needs-serve">
+          <p class="warn">この行はデモ在庫です。検索の見本であり、問い合わせ・取引の対象ではありません。実取引は登録した出品に対してのみ。</p>
+        </div><p class="muted needs-file">登録・問い合わせ・取引は `clojure -M:dev:serve` の live face で動きます。このファイル単体（file://）では検索の見本です。</p><a class="dads-button" data-type="outline" data-size="md" href="#search">在庫一覧へ戻る</a></section>
       </div>
+      <section class="view" id="view-account" data-view="account">
+        <h2 class="dads-heading" data-size="32">登録 / ログイン</h2>
+        <p class="muted needs-file">このページを動かすには `clojure -M:dev:serve`（既定 http://127.0.0.1:4510）。</p>
+        <p id="whoami" class="ok"></p>
+        <form class="live-form needs-serve" id="register-form" data-live="register">
+          <h3 class="dads-heading" data-size="24">新規登録</h3>
+          <label>ハンドル（英小文字・数字・ハイフン）<input type="text" name="handle" required pattern="[a-z0-9][a-z0-9-]{1,30}" autocomplete="username"></label>
+          <label>パスフレーズ（8文字以上）<input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+          <label>役割<select name="role">
+            <option value="buyer">買い手 / 個人出品</option>
+            <option value="dealer-agent">販売店エージェント</option>
+          </select></label>
+          <button class="dads-button" data-type="solid-fill" data-size="md" type="submit">登録する</button>
+        </form>
+        <form class="live-form needs-serve" id="login-form" data-live="login">
+          <h3 class="dads-heading" data-size="24">ログイン</h3>
+          <label>ハンドル<input type="text" name="handle" required autocomplete="username"></label>
+          <label>パスフレーズ<input type="password" name="password" required autocomplete="current-password"></label>
+          <button class="dads-button" data-type="outline" data-size="md" type="submit">ログイン</button>
+        </form>
+        <form class="live-form needs-serve" id="logout-form" data-live="logout">
+          <button class="dads-button" data-type="text" data-size="md" type="submit">ログアウト</button>
+        </form>
+      </section>
+      <section class="view" id="view-inbox" data-view="inbox">
+        <h2 class="dads-heading" data-size="32">受信箱</h2>
+        <p class="muted">問い合わせは governor を通る。返信は買い手か出品者だけ。</p>
+        <div class="dads-table">
+          <table class="dads-table__table"><thead>
+            <tr>
+              <th class="dads-table__col-header" scope="col">ID</th>
+              <th class="dads-table__col-header" scope="col">車両</th>
+              <th class="dads-table__col-header" scope="col">買い手</th>
+              <th class="dads-table__col-header" scope="col">本文</th>
+              <th class="dads-table__col-header" scope="col">状態</th>
+              <th class="dads-table__col-header" scope="col">返信</th>
+            </tr>
+          </thead><tbody>
+            <tr>
+              <td>inq-JP-200</td>
+              <td>JP-200</td>
+              <td>buyer-demo</td>
+              <td>試乗希望です</td>
+              <td>open</td>
+              <td>0</td>
+            </tr>
+          </tbody></table>
+        </div>
+        <form class="live-form needs-serve" id="reply-form" data-live="reply">
+          <label>問い合わせID<input type="text" name="inquiry-id" required></label>
+          <label>返信<input type="text" name="body" required></label>
+          <button class="dads-button" data-type="solid-fill" data-size="md" type="submit">返信する</button>
+        </form>
+      </section>
+      <section class="view" id="view-list" data-view="list">
+        <h2 class="dads-heading" data-size="32">出品する</h2>
+        <p class="muted">個人出品は自己申告です。電子車検証フィードではありません。スキャンはデモラベルです。古物商の販売店出品はコンソール側のライセンス経路を使います。</p>
+        <form class="live-form needs-serve" id="list-form" data-live="list">
+          <label>出品ID（実VINを git に置かない。例 USER-1）<input type="text" name="vin" required pattern="[A-Za-z0-9][A-Za-z0-9-]{1,20}"></label>
+          <label>メーカー<input type="text" name="make" required></label>
+          <label>車種<input type="text" name="model" required></label>
+          <label>年式<input type="number" name="year" required min="1980" max="2026"></label>
+          <label>価格（円）<input type="number" name="price" required min="1"></label>
+          <label>走行距離（km）<input type="number" name="mileage" required min="0"></label>
+          <label>都道府県<select name="prefecture">
+            <option value="tokyo">東京都</option>
+            <option value="osaka">大阪府</option>
+            <option value="aichi">愛知県</option>
+            <option value="fukuoka">福岡県</option>
+            <option value="hokkaido">北海道</option>
+          </select></label>
+          <label>ボディ<select name="body-type">
+            <option value="sedan">セダン</option>
+            <option value="hatch">ハッチバック</option>
+            <option value="suv">SUV</option>
+            <option value="minivan">ミニバン</option>
+          </select></label>
+          <button class="dads-button" data-type="solid-fill" data-size="md" type="submit">出品する</button>
+        </form>
+      </section>
       <section class="view" id="view-operator" data-view="operator">
         <h2 class="dads-heading" data-size="32">出品コンソール（Governor）</h2>
         <p class="muted">VehicleSale-LLM の提案は VehicleSaleGovernor を通ったものだけが台帳に残る。HARD hold は人間も覆せない。マネー操作と輸出入証明は常に人間承認。送金しない。通関申告しない。</p>
@@ -5601,7 +5785,7 @@ document.addEventListener('DOMContentLoaded', function(){
               <th class="dads-table__row-header" scope="row">list</th>
               <td>vin-100</td>
               <td>rbac</td>
-              <td>:buyer は :vehicle/list の権限を持たない</td>
+              <td>buyer の出品は自己申告の個人出品に限る</td>
             </tr>
             <tr>
               <th class="dads-table__row-header" scope="row">list</th>
@@ -5680,6 +5864,18 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>JP-100</td>
               <td>funds-not-arrived-gate, custody-handover-gate, scope-exclusion-gate</td>
               <td>キャプチャが無いエスクローを解放しようとした: escrow-id=esc-missing</td>
+            </tr>
+            <tr>
+              <th class="dads-table__row-header" scope="row">reply</th>
+              <td>inq-JP-200</td>
+              <td>inquiry-party-gate</td>
+              <td>問い合わせの当事者ではない: actor=stranger vin=JP-200</td>
+            </tr>
+            <tr>
+              <th class="dads-table__row-header" scope="row">open</th>
+              <td>JP-100</td>
+              <td>demo-inventory-gate</td>
+              <td>デモ在庫は販売対象外: vin=JP-100</td>
             </tr>
             <tr>
               <th class="dads-table__row-header" scope="row">confirm</th>
@@ -5993,6 +6189,18 @@ document.addEventListener('DOMContentLoaded', function(){
               <td>vin, buyer-id</td>
             </tr>
             <tr>
+              <td>policy-hold</td>
+              <td>reply</td>
+              <td>inq-JP-200</td>
+              <td>inquiry-party-gate</td>
+            </tr>
+            <tr>
+              <td>policy-hold</td>
+              <td>open</td>
+              <td>JP-100</td>
+              <td>demo-inventory-gate</td>
+            </tr>
+            <tr>
               <td>committed</td>
               <td>confirm</td>
               <td>JP-400</td>
@@ -6110,7 +6318,7 @@ document.addEventListener('DOMContentLoaded', function(){
         </div>
       </section>
       <footer>
-        <p class="muted">build-time 生成: vehiclesale.render-html が実 actor を seed に対して走らせた結果。時計・乱数・ネットワークは使っていない。</p>
+        <p class="muted">build-time 生成、または `clojure -M:dev:serve` の live face。Governor を通らない書込は無い。execute? false。</p>
       </footer>
     </div>
   </body>

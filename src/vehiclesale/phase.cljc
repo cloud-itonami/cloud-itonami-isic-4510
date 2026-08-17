@@ -26,24 +26,25 @@
 
 (def read-ops  #{:disclosure/query})
 (def write-ops #{:vehicle/list :sale/confirm :dispute/request :inquiry/submit
-                 :scan/record :escrow/open :escrow/capture :escrow/propose-release
-                 :custody/transfer :custody/handover :payout/bind :x402/unlock
-                 :border/quote :export/certify :import/permit})
+                 :inquiry/reply :scan/record :escrow/open :escrow/capture
+                 :escrow/propose-release :custody/transfer :custody/handover
+                 :payout/bind :x402/unlock :border/quote :export/certify
+                 :import/permit})
 
 (def phases
   {0 {:label "read-only"          :writes #{}
                                    :auto #{}}
-   1 {:label "assisted-listing"   :writes #{:vehicle/list :inquiry/submit :scan/record
-                                            :border/quote}
+   1 {:label "assisted-listing"   :writes #{:vehicle/list :inquiry/submit :inquiry/reply
+                                            :scan/record :border/quote}
                                    :auto #{}}
    2 {:label "assisted-sale"      :writes #{:vehicle/list :sale/confirm :dispute/request
-                                            :inquiry/submit :scan/record :escrow/open
-                                            :custody/transfer :custody/handover
+                                            :inquiry/submit :inquiry/reply :scan/record
+                                            :escrow/open :custody/transfer :custody/handover
                                             :border/quote :export/certify}
                                    :auto #{}}
    3 {:label "supervised-auto"    :writes write-ops
                                    :auto #{:vehicle/list :sale/confirm :inquiry/submit
-                                           :scan/record :escrow/open
+                                           :inquiry/reply :scan/record :escrow/open
                                            :custody/transfer :custody/handover
                                            :border/quote}}})
 

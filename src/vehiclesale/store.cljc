@@ -50,6 +50,9 @@
   (all-border-quotes [s])
   (commit-record! [s record] "apply a committed op's record to the SSoT")
   (append-ledger! [s fact]   "append one immutable decision/disclosure fact")
+  (account [s handle] "registered handle → account (no passphrase)")
+  (all-accounts [s])
+  (session [s token])
   (with-vehicles [s vehicles] "replace/seed vehicles (map vin→vehicle)")
   (with-title-records [s recs] "replace/seed title records (map vin→title-record)")
   (with-odometer-records [s recs] "replace/seed latest odometer readings (map vin→reading)")
@@ -66,7 +69,7 @@
 
 ;; ───────────────────────── demo data (fictitious, non-real VINs) ─────
 
-(defn demo-data
+(defn- demo-data*
   "A small, entirely fictitious dataset so the actor + tests run offline and
   no real VIN/title/lien is ever asserted by this repository. `vin-200`
   carries a demo active lien and `vin-300` a demo salvage title purely to
@@ -336,6 +339,18 @@
    :border-quotes {}
    :inquiries {}})
 
+(defn- mark-seed-demo
+  "Every seed row is a search fixture, not a car for sale."
+  [data]
+  (update data :vehicles
+          (fn [vs]
+            (into {} (map (fn [[k v]] [k (assoc v :demo? true :listing-kind :seed)]) vs)))))
+
+(defn demo-data
+  "Seed inventory with `:demo? true`. User listings must set `:demo? false`."
+  []
+  (mark-seed-demo (demo-data*)))
+
 ;; ───────────────────────── MemStore (default) ─────────────────────────
 
 (defrecord MemStore [a]
@@ -384,9 +399,15 @@
       :scan-upsert       (swap! a update-in [:vehicles (:vin value)]
                                 merge (select-keys value [:scan :vin]))
       :correction-apply  (swap! a update-in [:vehicles (first path)] merge (:patch value))
+      :account-upsert    (swap! a assoc-in [:accounts (:handle value)] value)
+      :session-upsert    (swap! a assoc-in [:sessions (:token value)] value)
+      :session-delete    (swap! a update :sessions dissoc (:token value))
       nil)
     s)
   (append-ledger! [_ fact] (swap! a update :ledger conj fact) fact)
+  (account [_ handle] (get-in @a [:accounts handle]))
+  (all-accounts [_] (sort-by :handle (vals (:accounts @a))))
+  (session [_ token] (get-in @a [:sessions token]))
   (with-vehicles [s vs]        (when (seq vs) (swap! a assoc :vehicles vs)) s)
   (with-title-records [s recs] (when (seq recs) (swap! a assoc :title-records recs)) s)
   (with-odometer-records [s recs] (when (seq recs) (swap! a assoc :odometer-records recs)) s)
@@ -407,7 +428,8 @@
   (->MemStore (atom (merge (demo-data)
                            {:ledger [] :inquiries {} :escrows {}
                             :x402-receipts {} :export-certs {}
-                            :import-permits {} :border-quotes {}}))))
+                            :import-permits {} :border-quotes {}
+                            :accounts {} :sessions {}}))))
 
 ;; ───────────────────────── DatomicStore (langchain.db) ─────────────────
 
@@ -428,6 +450,9 @@
    :export/vin         {:db/unique :db.unique/identity}
    :import/vin         {:db/unique :db.unique/identity}
    :border-quote/id    {:db/unique :db.unique/identity}
+   :account/id         {:db/unique :db.unique/identity}
+   :account/handle     {:db/unique :db.unique/identity}
+   :session/token      {:db/unique :db.unique/identity}
    :ledger/seq         {:db/unique :db.unique/identity}})
 
 (defn- enc [v] (ls/enc v))
@@ -438,7 +463,8 @@
    :repair-history? :inspection-expires :dealer :grade :fuel
    :displacement-cc :color :listed-status :weight-kg :fuel-economy-km-l
    :doors :seats :drive :length-mm :width-mm :height-mm :scan
-   :catalog? :currency :steering :country :dealer-license :region])
+   :catalog? :currency :steering :country :dealer-license :region
+   :demo? :owner-id :listing-kind :private-sale-attested?])
 
 (defn- vehicle->tx [{:keys [vin make model year title-status price] :as v}]
   (cond-> {:vehicle/vin vin :vehicle/listing (enc (select-keys v listing-keys))}
@@ -512,6 +538,22 @@
 
 (def ^:private inquiry-pull [:inquiry/id :inquiry/blob])
 
+(defn- account->tx [{:keys [handle] :as v}]
+  {:account/id handle :account/handle handle :account/blob (enc v)})
+
+(defn- pull->account [m]
+  (when (:account/id m) (dec* (:account/blob m))))
+
+(def ^:private account-pull [:account/id :account/handle :account/blob])
+
+(defn- session->tx [{:keys [token] :as v}]
+  {:session/token token :session/blob (enc v)})
+
+(defn- pull->session [m]
+  (when (:session/token m)
+    (let [v (dec* (:session/blob m))]
+      (when-not (:revoked? v) v))))
+
 (defn- blob-tx [id-k blob-k id v]
   {id-k id blob-k (enc v)})
 
@@ -575,6 +617,16 @@
                            (d/pull (d/db conn) [:border-quote/id :border-quote/blob]
                                    [:border-quote/id %])))
          (sort-by :quote-id)))
+  (account [_ handle]
+    (pull->account (d/pull (d/db conn) account-pull [:account/id handle])))
+  (all-accounts [_]
+    (->> (d/q '[:find [?h ...] :where [?e :account/id ?h]] (d/db conn))
+         (map #(pull->account (d/pull (d/db conn) account-pull [:account/id %])))
+         (remove nil?)
+         (sort-by :handle)))
+  (session [_ token]
+    (pull->session (d/pull (d/db conn) [:session/token :session/blob]
+                           [:session/token token])))
   (commit-record! [s {:keys [effect path value]}]
     (case effect
       :listing-upsert   (do (d/transact! conn [(vehicle->tx value)])
@@ -603,6 +655,9 @@
                                              (select-keys value [:scan :vin])))])
       :correction-apply
       (d/transact! conn [(vehicle->tx (merge (vehicle s (first path)) (:patch value)))])
+      :account-upsert (d/transact! conn [(account->tx value)])
+      :session-upsert (d/transact! conn [(session->tx value)])
+      :session-delete (d/transact! conn [(session->tx {:token (:token value) :revoked? true})])
       nil)
     s)
   (append-ledger! [s fact]

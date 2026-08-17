@@ -31,7 +31,8 @@
    :repair-history? :inspection-expires :dealer :grade :fuel
    :displacement-cc :color :listed-status :scan :weight-kg :fuel-economy-km-l
    :doors :seats :drive :length-mm :width-mm :height-mm
-   :catalog? :currency :steering :country :dealer-license :region])
+   :catalog? :currency :steering :country :dealer-license :region
+   :demo? :owner-id :listing-kind :private-sale-attested?])
 
 (defn- propose-list
   "Listing normalization — the LLM only normalizes/validates the caller-
@@ -82,15 +83,34 @@
 (defn- propose-inquiry
   "Buyer inquiry (lead). The LLM does not invent a vehicle or a dealer —
   it copies the caller's vin / buyer-id / body. Identity fields beyond
-  `:buyer-id` are refused by construction; do not add PII keys here."
-  [_db {:keys [vin buyer-id body inquiry-id]}]
-  (let [id (or inquiry-id (str "inq-" vin))]
+  `:buyer-id` are refused by construction; do not add PII keys here.
+  Default ids include the buyer so two leads on the same VIN do not
+  overwrite each other."
+  [db {:keys [vin buyer-id body inquiry-id]}]
+  (let [n (count (filter #(and (= vin (:vin %)) (= buyer-id (:buyer-id %)))
+                         (store/all-inquiries db)))
+        id (or inquiry-id (str "inq-" vin "-" buyer-id "-" (inc n)))]
     {:summary   (str "inquiry: " id " → " vin)
      :rationale "問い合わせ本文の正規化のみ。車両の存在確認は governor が行う。"
      :cites     [:vin :buyer-id]
      :source    nil
      :effect    :inquiry-upsert
-     :value     {:inquiry-id id :vin vin :buyer-id buyer-id :body body :status :open}
+     :value     {:inquiry-id id :vin vin :buyer-id buyer-id :body body
+                 :status :open :replies []}
+     :confidence 0.9}))
+
+(defn- propose-inquiry-reply
+  [db {:keys [inquiry-id body by]}]
+  (let [prev (or (store/inquiry db inquiry-id) {:inquiry-id inquiry-id :replies []})
+        reply {:by by :body body}]
+    {:summary   (str "inquiry reply: " inquiry-id)
+     :rationale "返信の追記のみ。当事者判定は governor。"
+     :cites     [:inquiry-id]
+     :source    nil
+     :effect    :inquiry-upsert
+     :value     (-> prev
+                    (assoc :inquiry-id inquiry-id :status :open)
+                    (update :replies (fnil conj []) reply))
      :confidence 0.9}))
 
 (defn- propose-disclosure
@@ -133,7 +153,7 @@
 (defn- propose-escrow-open
   [db {:keys [vin buyer-id seller-id gross-yen plan]}]
   (let [veh (store/vehicle db vin)
-        seller (or seller-id (:dealer veh))
+        seller (or seller-id (:owner-id veh) (:dealer veh))
         gross (or gross-yen (:price veh))
         p (or plan (commerce/plan gross))]
     {:summary   (str "escrow open: " vin)
@@ -266,6 +286,7 @@
     :sale/confirm          (propose-confirm db request)
     :disclosure/query      (propose-disclosure db request)
     :inquiry/submit        (propose-inquiry db request)
+    :inquiry/reply            (propose-inquiry-reply db request)
     :dispute/request          (propose-dispute db request)
     :scan/record              (propose-scan db request)
     :escrow/open              (propose-escrow-open db request)

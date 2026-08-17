@@ -36,7 +36,10 @@ AIRIS credential. A generic resale actor does not model either.
 This actor **lists, discloses, takes inquiries, confirms sale decisions,
 records camera-scan / inspection / JP 維持費概算, authorises escrow /
 custody / x402 unlocks, and quotes cross-border procedure + landed cost**.
-It never executes a transfer (`execute?` stays false). It never files a
+It never executes a transfer (`execute?` stays false). Seed/demo catalog
+rows (`:demo? true`) are search fixtures and cannot be bought. Live
+register / inquire / deal runs on `clojure -M:dev:serve` against
+**user listings only**. It never files a
 customs declaration, never classifies HS (`:adjudicated? false`), and
 never invents a missing duty row (`:landed/computable? false`). Compose
 with `cloud-itonami-marketplace-crossborder` (same refusal) and
@@ -73,11 +76,18 @@ resolves a dispute the VehicleSaleGovernor would reject.
 ```bash
 clojure -M:dev:test
 clojure -M:dev:run
+clojure -M:dev:serve         # live face: register / inquire / deal authorisation
 clojure -M:dev:render-html   # regenerates docs/index.html + docs/samples/operator-console.html
 clojure -M:lint
 ```
 
-Open `docs/index.html` (fragment SPA: `#search` / `#v/<vin>` / `#operator`).
+Open `http://127.0.0.1:4510` (`#search` / `#v/<vin>` / `#account` / `#inbox`
+/ `#list` / `#operator`). `docs/index.html` is the same SPA frozen at
+build time; `file://` search works, writes need the serve process.
+
+Port `ITONAMI_4510_PORT` (default 4510). Store
+`ITONAMI_4510_STORE` or `$HOME/.itonami/isic-4510/live.edn` (gitignored;
+pass-digests stay off git).
 
 ## Non-Negotiables
 
@@ -88,7 +98,11 @@ Open `docs/index.html` (fragment SPA: `#search` / `#v/<vin>` / `#operator`).
   confirmations.
 - Do not confirm a sale on a title with an unresolved, undisclosed lien.
 - Do not fabricate a source-catalog entry or a feed-credential record.
-- Do not list a JP vehicle without a 古物商許可番号.
+- Do not list a JP dealer vehicle without a 古物商許可番号. Owner-attested
+  private-party listings skip 古物商 and are labeled 自己申告; they are not
+  an AIRIS / 電子車検証 feed.
+- Do not sell seed/demo catalog cars (`:demo? true`). Live escrow is for
+  registered user listings only.
 - Do not confirm a JP sale without an explicit 修復歴 disclosure.
 - Do not list a JP vehicle whose required camera angles are missing.
 - Do not confirm a JP sale (or propose escrow release) on expired 車検.
