@@ -3,8 +3,8 @@
 
   Search, sort and card projection are pure functions over store listings.
   They never write, never talk to the LLM, and never bypass the governor.
-  Write paths (`:vehicle/list`, `:sale/confirm`, `:inquiry/submit`) stay on
-  the OperationActor.
+  Write paths (`:vehicle/list`, `:sale/confirm`, `:inquiry/submit`,
+  `:inquiry/reply`, `:escrow/open`) stay on the OperationActor.
 
   Default marketplace slice is every `:catalog? true` unsold row, every
   closed market. US `vin-*` operator rows stay off this face. Price caps
@@ -137,7 +137,8 @@
   the identity `:vin` so a view can address `#v/<vin>`."
   [{:keys [vin make model grade year mileage price prefecture body-type
            fuel inspection-expires repair-history? dealer listed-status
-           running-cost scan-complete? currency country-label jurisdiction]}]
+           running-cost scan-complete? currency country-label jurisdiction
+           demo? owner-id listing-kind]}]
   {:vin vin
    :title (str make " " model (when grade (str " " grade)))
    :year (str year "年")
@@ -153,8 +154,11 @@
    :fuel (get fuels fuel (some-> fuel name))
    :inspection (or inspection-expires "検査情報なし")
    :repair-history (if repair-history? "修復歴あり" "修復歴なし")
-   :dealer dealer
+   :dealer (or dealer owner-id)
    :sold? (= :sold listed-status)
+   :demo? (boolean demo?)
+   :owner-id owner-id
+   :listing-kind listing-kind
    :annual-cost (when running-cost (yen (:total-yen running-cost)))
    :scan-complete? (boolean scan-complete?)
    :href (str "#v/" vin)})

@@ -26,7 +26,8 @@
       (is (true? (:verified? (store/payout s "デモモータース東京"))))
       (is (false? (:verified? (store/payout s "デモ自動車札幌"))))
       (is (= :at-dealer (:status (store/custody s "JP-100"))))
-      (is (= :at-dealer (:status (store/custody s "DE-100")))))))
+      (is (= :at-dealer (:status (store/custody s "DE-100"))))
+      (is (true? (:demo? (store/vehicle s "JP-100")))))))
 
 (deftest write-and-ledger-parity
   (doseq [[label s] (backends)]
@@ -75,6 +76,16 @@
         (store/commit-record! s {:effect :border-quote-upsert
                                  :value {:quote-id "bq-1" :vin "JP-100" :dest-country :de}})
         (is (= :de (:dest-country (store/border-quote s "bq-1")))))
+      (testing "account and session round-trip"
+        (store/commit-record! s {:effect :account-upsert
+                                 :value {:handle "alice" :role :buyer
+                                         :pass-digest "salt$hash"}})
+        (is (= :buyer (:role (store/account s "alice"))))
+        (store/commit-record! s {:effect :session-upsert
+                                 :value {:token "tok-1" :handle "alice"}})
+        (is (= "alice" (:handle (store/session s "tok-1"))))
+        (store/commit-record! s {:effect :session-delete :value {:token "tok-1"}})
+        (is (nil? (store/session s "tok-1"))))
       (testing "ledger is append-only and order-preserving"
         (store/append-ledger! s {:op :a :disposition :commit})
         (store/append-ledger! s {:op :b :disposition :hold})

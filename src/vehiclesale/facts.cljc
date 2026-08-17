@@ -77,7 +77,12 @@
     :name "Operator-registered KEBS / QISJ Certificate of Roadworthiness credential"
     :class :operator-licensed-kebs-feed
     :access :operator-licensed
-    :url "https://www.kebs.org/"}])
+    :url "https://www.kebs.org/"}
+   {:id :owner-attested-private-sale
+    :name "Registered owner's attested one-off private sale (not a licensed feed)"
+    :class :owner-attested-private-sale
+    :access :owner-attested
+    :url nil}])
 
 (def allowed-source-classes
   "Closed set — a class not in `catalog` (e.g. :inference, :seller-assertion,
@@ -91,11 +96,14 @@
   structural per-state licensed class in fact)."
   []
   {:source-count (count catalog)
-   :free-public-sources (into #{} (map :id (filter #(not= :operator-licensed (:access %)) catalog)))
+   :free-public-sources (into #{} (map :id (filter #(contains? #{:public-free-per-vin :public-api :public-free}
+                                                                  (:access %))
+                                                      catalog)))
    :note (str "R0 scope: NMVTIS one-report-per-VIN (US federal, free) + NHTSA "
               "recalls (US federal, free) + MLIT リコール・不具合情報 (JP, free) "
               "+ structural operator-licensed feed classes (US DMV, JP AIRIS, "
-              "EU type-approval, UK DVLA, AU PPSR, UAE RTA, NZTA, KEBS). Not a live "
+              "EU type-approval, UK DVLA, AU PPSR, UAE RTA, NZTA, KEBS) "
+              "+ owner-attested private-sale (self-declared, not a feed). Not a live "
               "tariff database — duty rows live in vehiclesale.border fixtures. "
               "Japan-hub demand ranking is a dated compilation, not a live 財務省 "
               "extract. Extend only by appending a real, citable catalog entry or a "

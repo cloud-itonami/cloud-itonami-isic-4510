@@ -37,7 +37,9 @@
    24. hs-adjudication-gate
    25. import-age-gate           (KS 1515 YoR cap / LK Gazette 2421/04 3-year)
    26. import-regime-gate        (AU SEVS/RAWS / Chile Ley 18.483 / ZA ITAC)
-   27. scope-exclusion-gate"
+   27. scope-exclusion-gate
+   28. demo-inventory-gate     (seed/demo stock is not for sale)
+   29. inquiry-party-gate      (reply only by buyer or listing owner)"
 
   (:require [clojure.set :as set]
             [clojure.string :as str]
@@ -62,7 +64,8 @@
     :unknown-market-gate :denied-destination-gate :steering-incompatible-gate
     :export-certificate-gate :import-permit-gate :landed-uncomputable-gate
     :tariff-conservation-gate :hs-adjudication-gate
-    :import-age-gate :import-regime-gate :scope-exclusion-gate})
+    :import-age-gate :import-regime-gate :scope-exclusion-gate
+    :demo-inventory-gate :inquiry-party-gate})
 
 (def always-escalate-ops
   "Money-adjacent writes. Independently kept out of every phase `:auto` set."
@@ -83,14 +86,16 @@
 
 (def permissions
   "actor-role → set of operations it may perform."
-  {:dealer-agent   #{:vehicle/list :sale/confirm :scan/record
+  {   :dealer-agent   #{:vehicle/list :sale/confirm :scan/record
                      :escrow/open :custody/transfer :custody/handover
-                     :border/quote :export/certify}
+                     :border/quote :export/certify :inquiry/submit :inquiry/reply}
    :title-officer  #{:vehicle/list :sale/confirm :dispute/request :scan/record
                      :escrow/open :escrow/capture :escrow/propose-release
                      :payout/bind :custody/transfer :custody/handover
-                     :border/quote :export/certify :import/permit}
-   :buyer          #{:disclosure/query :inquiry/submit :x402/unlock :border/quote}})
+                     :border/quote :export/certify :import/permit
+                     :inquiry/submit :inquiry/reply}
+   :buyer          #{:disclosure/query :inquiry/submit :inquiry/reply
+                     :vehicle/list :escrow/open :x402/unlock :border/quote}})
 
 (def tier-columns
   "For `:disclosure/query` — the columns each licensed subscriber tier may
@@ -104,9 +109,15 @@
 
 ;; ───────────────────────── checks ─────────────────────────
 
-(defn- rbac-violations [{:keys [op]} {:keys [actor-role]}]
-  (when-not (contains? (get permissions actor-role #{}) op)
-    [{:rule :rbac :detail (str actor-role " は " op " の権限を持たない")}]))
+(defn- rbac-violations [{:keys [op]} {:keys [actor-role]} proposal]
+  (cond
+    (not (contains? (get permissions actor-role #{}) op))
+    [{:rule :rbac :detail (str actor-role " は " op " の権限を持たない")}]
+    (and (= op :vehicle/list) (= :buyer actor-role)
+         (not (and (= :private-party (get-in proposal [:value :listing-kind]))
+                   (true? (get-in proposal [:value :private-sale-attested?])))))
+    [{:rule :rbac :detail "buyer の出品は自己申告の個人出品に限る"}]
+    :else nil))
 
 (defn- lien-clearance-violations
   "Only `:sale/confirm` moves title to a buyer. An active, unreleased lien
@@ -201,9 +212,12 @@
   rejects the empty case so an unsourced dealer cannot list."
   [{:keys [op]} proposal st]
   (when (and (= op :vehicle/list) (jp-subject? proposal st))
-    (when (str/blank? (str (get-in proposal [:value :kobutsusho-license])))
-      [{:rule :kobutsusho-license-gate
-        :detail (str "古物商許可番号が無い: vin=" (get-in proposal [:value :vin]))}])))
+    (let [v (:value proposal)
+          private? (and (= :private-party (:listing-kind v))
+                        (true? (:private-sale-attested? v)))]
+      (when (and (not private?) (str/blank? (str (:kobutsusho-license v))))
+        [{:rule :kobutsusho-license-gate
+          :detail (str "古物商許可番号が無い: vin=" (:vin v))}]))))
 
 (defn- catalog-subject?
   [proposal st]
@@ -239,11 +253,45 @@
 
 (defn- inquiry-target-violations
   [{:keys [op]} proposal st]
-  (when (= op :inquiry/submit)
-    (let [vin (get-in proposal [:value :vin])]
+  (when (contains? #{:inquiry/submit :inquiry/reply} op)
+    (let [vin (or (get-in proposal [:value :vin])
+                  (:vin (store/inquiry st (get-in proposal [:value :inquiry-id]))))]
       (when-not (store/vehicle st vin)
         [{:rule :inquiry-target-gate
           :detail (str "出品が存在しない車両への問い合わせ: vin=" vin)}]))))
+
+(defn- inquiry-party-violations
+  "A reply is only from the inquiring buyer or the listing owner.
+  Seed/demo rows have no `:owner-id`; only dealer-agent / title-officer
+  may answer those."
+  [{:keys [op]} {:keys [actor-id actor-role]} proposal st]
+  (when (= op :inquiry/reply)
+    (let [id (get-in proposal [:value :inquiry-id])
+          inq (store/inquiry st id)
+          vin (or (get-in proposal [:value :vin]) (:vin inq))
+          veh (when vin (store/vehicle st vin))
+          owner (:owner-id veh)
+          party? (contains? (set (remove nil? [(:buyer-id inq) owner])) actor-id)
+          demo-staff? (and (nil? owner)
+                           (contains? #{:dealer-agent :title-officer} actor-role))]
+      (cond
+        (nil? inq)
+        [{:rule :inquiry-party-gate :detail (str "問い合わせが無い: id=" id)}]
+        (or party? demo-staff?) nil
+        :else [{:rule :inquiry-party-gate
+                :detail (str "問い合わせの当事者ではない: actor=" actor-id " vin=" vin)}]))))
+
+(defn- demo-inventory-violations
+  "Seed/demo stock is a search fixture. Live buyers cannot open escrow or
+  confirm sale against it — that would sell a car that does not exist."
+  [{:keys [op channel]} {:keys [actor-role]} proposal st]
+  (when (contains? #{:escrow/open :sale/confirm} op)
+    (let [vin (get-in proposal [:value :vin])
+          veh (store/vehicle st vin)
+          live? (or (= :live channel) (= :buyer actor-role))]
+      (when (and live? veh (true? (:demo? veh)))
+        [{:rule :demo-inventory-gate
+          :detail (str "デモ在庫は販売対象外: vin=" vin)}]))))
 
 (defn- scan-of [proposal st]
   (or (get-in proposal [:value :scan])
@@ -496,7 +544,7 @@
     :hard? bool :dispute? bool}."
   [request context proposal st]
   (let [hard    (into []
-                      (concat (rbac-violations request context)
+                      (concat (rbac-violations request context proposal)
                               (lien-clearance-violations request proposal st)
                               (odometer-disclosure-violations request proposal st)
                               (source-provenance-violations request proposal st)
@@ -505,6 +553,8 @@
                               (dealer-license-violations request proposal st)
                               (repair-history-disclosure-violations request proposal st)
                               (inquiry-target-violations request proposal st)
+                              (inquiry-party-violations request context proposal st)
+                              (demo-inventory-violations request context proposal st)
                               (scan-coverage-violations request proposal st)
                               (shaken-validity-violations request proposal st)
                               (x402-receipt-violations request proposal)

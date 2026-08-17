@@ -12,6 +12,7 @@
         {io.github.kotoba-lang/langchain
          {:local/root "../../kotoba-lang/langchain"}}}
   :run {:main-opts ["-m" "vehiclesale.sim"]}
+  :serve {:main-opts ["-m" "vehiclesale.serve"]}
   :render-html {:main-opts ["-m" "vehiclesale.render-html"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
