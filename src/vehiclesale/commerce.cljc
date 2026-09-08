@@ -16,7 +16,7 @@
   Destination charges transfer on capture and cannot hold until 納車.
   Direct charges would make the dealer merchant of record; the platform
   owns the buyer relationship on this face."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [vehiclesale.running-cost :as cost]))
 
 (def commission-bps

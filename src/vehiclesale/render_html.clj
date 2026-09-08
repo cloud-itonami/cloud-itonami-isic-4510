@@ -9,7 +9,7 @@
   (same bytes — one SPA, two entry paths)."
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [jp-go-dds.core :as dds]
             [jp-go-dds.page :as page]
             [jp-go-dds.tokens :as tokens]

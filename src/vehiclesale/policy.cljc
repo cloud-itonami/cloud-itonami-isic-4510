@@ -42,7 +42,7 @@
    29. inquiry-party-gate      (reply only by buyer or listing owner)"
 
   (:require [clojure.set :as set]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [vehiclesale.body :as body]
             [vehiclesale.border :as border]
             [vehiclesale.commerce :as commerce]

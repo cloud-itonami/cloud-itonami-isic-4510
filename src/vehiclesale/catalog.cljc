@@ -10,7 +10,7 @@
   closed market. US `vin-*` operator rows stay off this face. Price caps
   compare in JPY via `vehiclesale.border/to-jpy` so mixed currencies do
   not silently compare 28,500 EUR against 1,000,000 JPY."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [vehiclesale.body :as body]
             [vehiclesale.border :as border]
             [vehiclesale.running-cost :as cost]))
@@ -83,8 +83,8 @@
 (defn- includes-ci? [hay needle]
   (and (seq needle)
        hay
-       (str/includes? (str/lower-case (str hay))
-                      (str/lower-case (str needle)))))
+       (str/includes? (str/lower (str hay))
+                      (str/lower (str needle)))))
 
 (defn search
   "Filter `listings` (hydrated vehicle maps). Unknown / nil criteria are

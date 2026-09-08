@@ -4,7 +4,7 @@
   Accounts hold a salted SHA-256 of the passphrase, never the passphrase.
   Writes still go VehicleSale-LLM ⊣ VehicleSaleGovernor. This namespace
   does not bypass the governor. Yen does not move (`execute?` stays false)."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [langgraph.graph :as g]
             [vehiclesale.body :as body]
             [vehiclesale.operation :as op]
@@ -63,7 +63,7 @@
 
 (defn register!
   [st {:keys [handle password role salt token]}]
-  (let [handle (str/lower-case (str/trim (str handle)))
+  (let [handle (str/lower (str/trim (str handle)))
         role (or role :buyer)
         role (if (string? role) (keyword role) role)]
     (cond
@@ -89,7 +89,7 @@
 
 (defn login
   [st {:keys [handle password token]}]
-  (let [handle (str/lower-case (str/trim (str handle)))
+  (let [handle (str/lower (str/trim (str handle)))
         acc (store/account st handle)]
     (cond
       (nil? acc) {:ok false :error :unknown-handle}
@@ -138,7 +138,7 @@
 (defn list-vehicle!
   [st ctx {:keys [vin make model year price mileage prefecture body-type
                   fuel color grade]}]
-  (let [vin (str/upper-case (str/trim (str vin)))
+  (let [vin (str/upper (str/trim (str vin)))
         handle (:actor-id ctx)
         pref (keyword (name (or prefecture :tokyo)))
         body (keyword (name (or body-type :sedan)))
