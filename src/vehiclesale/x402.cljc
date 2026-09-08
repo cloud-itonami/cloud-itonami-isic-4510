@@ -7,7 +7,7 @@
   recorded here is evidence the governor can read — the same shape
   `cloud-itonami-marketplace-settlement` uses for x402 `:direct-split`
   reconciliation, not a payout rail."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def facilitator
   {:host "https://x402.nexus"

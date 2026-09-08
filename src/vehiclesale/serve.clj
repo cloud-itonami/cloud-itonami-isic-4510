@@ -5,7 +5,7 @@
   Durable file is gitignored. This process still does not move yen."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [vehiclesale.catalog :as catalog]
             [vehiclesale.live :as live]
             [vehiclesale.render-html :as rh]

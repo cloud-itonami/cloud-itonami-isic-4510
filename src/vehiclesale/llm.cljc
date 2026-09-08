@@ -18,7 +18,7 @@
      :effect kw :value map|nil :columns [kw ..]|nil :confidence 0..1}"
   (:require #?(:clj  [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [langchain.model :as model]
             [vehiclesale.border :as border]
             [vehiclesale.commerce :as commerce]

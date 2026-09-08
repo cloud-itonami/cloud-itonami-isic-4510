@@ -23,7 +23,7 @@
   is the money actor; Stripe separate-charges-and-transfers and nexus-x402
   are rails outside this process. Physical custody is a status on the VIN,
   not a lot this actor operates."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [langchain.db :as d]
             [langchain-store.core :as ls]
             [vehiclesale.body :as body]))
