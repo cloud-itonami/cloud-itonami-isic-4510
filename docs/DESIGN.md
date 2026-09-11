@@ -24,7 +24,7 @@ Dealership/marketplace 型の中古/新車販売を、`cloud-itonami-isic-6311`
 
 ## 2. VehicleSaleGovernor(独立検閲層)
 
-`src/vehiclesale/policy.cljc`。HARD 27 + SOFT（confidence / salvage /
+`src/vehiclesale/policy.cljk`。HARD 27 + SOFT（confidence / salvage /
 dispute / money-rail / filings-adjacent）。US 成約のオドメーター開示は
 `:us` のみ（49 U.S.C. を他国に適用しない）。JP は
 `kobutsusho-license-gate`。免許が必要な非 JP 市場は
@@ -41,7 +41,7 @@ dispute / money-rail / filings-adjacent）。US 成約のオドメーター開�
 
 ## 3. R0 の正直なスコープ
 
-`src/vehiclesale/facts.cljc`: 無料公式ソースは 3 種 — NMVTIS、NHTSA
+`src/vehiclesale/facts.cljk`: 無料公式ソースは 3 種 — NMVTIS、NHTSA
 recalls、国交省リコール・不具合情報。構造的クラスは US DMV / JP AIRIS /
 EU type-approval / UK DVLA / AU PPSR / UAE RTA。関税率は
 `vehiclesale.border` の test-fixture（`as-of 2026-08`）。閉じた市場であり

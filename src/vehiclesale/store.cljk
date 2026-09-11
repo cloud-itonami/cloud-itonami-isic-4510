@@ -7,7 +7,7 @@
                        store.
 
   Both implement the same protocol and pass the same contract
-  (test/vehiclesale/store_contract_test.clj).
+  (test/vehiclesale/store_contract_test.cljk).
 
   Entity shapes (ADR): a vehicle listing (VIN, make/model/year, title
   status, asking price, catalog? / currency / steering / country, JP
