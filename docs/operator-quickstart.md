@@ -20,8 +20,8 @@ cd cloud-itonami-isic-4510
 ## 2. Run tests
 
 ```bash
-clojure -M:dev:test
-clojure -M:dev:render-html   # regenerates docs/index.html + docs/samples/operator-console.html
+kbb -M:dev:test
+kbb -M:dev:render-html   # regenerates docs/index.html + docs/samples/operator-console.html
 ```
 
 Expect green. Fix failures before operating. The product face is a

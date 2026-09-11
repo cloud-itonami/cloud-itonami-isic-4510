@@ -50,7 +50,7 @@ OperationActor。車両代金は Stripe separate charges + transfers の認可
 ## Consequences
 
 - (+) `kotoba-lang/industry` registry の 4510 スロットが実装へ昇格。
-- (+) `clojure -M:dev:test`/`clojure -M:lint` で検証済み。
+- (+) `kbb -M:dev:test`/`kbb -M:lint` で検証済み。
 - (-) 州ごとの権原/リーエンと JP 電子車検証は operator の credential
   登録が必須。無料公式ソースは履歴・リコール面まで。
 

@@ -38,7 +38,7 @@ records camera-scan / inspection / JP 維持費概算, authorises escrow /
 custody / x402 unlocks, and quotes cross-border procedure + landed cost**.
 It never executes a transfer (`execute?` stays false). Seed/demo catalog
 rows (`:demo? true`) are search fixtures and cannot be bought. Live
-register / inquire / deal runs on `clojure -M:dev:serve` against
+register / inquire / deal runs on `kbb -M:dev:serve` against
 **user listings only**. It never files a
 customs declaration, never classifies HS (`:adjudicated? false`), and
 never invents a missing duty row (`:landed/computable? false`). Compose
@@ -74,11 +74,11 @@ resolves a dispute the VehicleSaleGovernor would reject.
 ## Run
 
 ```bash
-clojure -M:dev:test
-clojure -M:dev:run
-clojure -M:dev:serve         # live face: register / inquire / deal authorisation
-clojure -M:dev:render-html   # regenerates docs/index.html + docs/samples/operator-console.html
-clojure -M:lint
+kbb -M:dev:test
+kbb -M:dev:run
+kbb -M:dev:serve         # live face: register / inquire / deal authorisation
+kbb -M:dev:render-html   # regenerates docs/index.html + docs/samples/operator-console.html
+kbb -M:lint
 ```
 
 Open `http://127.0.0.1:4510` (`#search` / `#v/<vin>` / `#account` / `#inbox`
