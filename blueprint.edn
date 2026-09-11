@@ -18,7 +18,7 @@
   real human-in-the-loop resume (title officer approves/rejects), and
   an append-only audit ledger (vehiclesale.store/ledger +
   append-ledger!, MemStore + DatomicStore parity). The Governor
-  (src/vehiclesale/policy.cljc) runs HARD 27 + SOFT (confidence,
+  (src/vehiclesale/policy.cljk) runs HARD 27 + SOFT (confidence,
   salvage-title-gate, dispute-request, money-rail, filings-adjacent).
   The public face is a Japan-hub catalog (vehiclesale.catalog
   + vehiclesale.border eligibility + landed-cost estimate; docs/index.html SPA)

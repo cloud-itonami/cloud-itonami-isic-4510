@@ -37,7 +37,7 @@ OperationActor。車両代金は Stripe separate charges + transfers の認可
 
 ### 3. R0 の正直なスコープ
 
-出典カタログ(`src/vehiclesale/facts.cljc`)は実在する3つの無料公式ソース
+出典カタログ(`src/vehiclesale/facts.cljk`)は実在する3つの無料公式ソース
 (NMVTIS、NHTSA recalls、国交省リコール・不具合情報)+ 2つの構造的クラス
 `:operator-licensed-dmv-feed`(州 DMV)と
 `:operator-licensed-shakensho-feed`(電子車検証 / AIRIS)。
