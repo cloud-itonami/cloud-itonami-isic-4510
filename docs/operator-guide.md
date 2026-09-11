@@ -5,8 +5,8 @@
 ```bash
 git clone https://github.com/cloud-itonami/cloud-itonami-isic-4510
 cd cloud-itonami-isic-4510
-clojure -M:dev:test
-clojure -M:dev:run
+kbb -M:dev:test
+kbb -M:dev:run
 ```
 
 ## 2. Production Checklist
@@ -17,7 +17,7 @@ clojure -M:dev:run
   feeds)
 - configure Datomic Local or an equivalent durable SSoT
 - define subscriber contract tenants/tiers and RBAC rules
-- run `clojure -M:dev:test` / `clojure -M:lint`
+- run `kbb -M:dev:test` / `kbb -M:lint`
 - verify audit-ledger export
 - get written legal review for the jurisdictions you serve (title/lien
   law and odometer-disclosure enforcement vary by state)

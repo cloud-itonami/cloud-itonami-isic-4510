@@ -14,7 +14,7 @@
     op7  走行距離のロールバック出品                    → odometer-disclosure REJECT → hold
     op8  適用除外車両(モデル年20年超)の成約、開示証明なし → commit(除外ロジック確認)
 
-  Run: clojure -M:dev:run"
+  Run: kbb -M:dev:run"
   (:require [langgraph.graph :as g]
             [vehiclesale.store :as store]
             [vehiclesale.operation :as op]
