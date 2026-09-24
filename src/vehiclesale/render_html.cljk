@@ -8,7 +8,7 @@
   Default writes `docs/samples/operator-console.html` and also `docs/index.html`
   (same bytes — one SPA, two entry paths)."
   (:require [clojure.java.io :as io]
-            [clojure.set :as set]
+            [kotoba.lang.coll :as set]
             [kotoba.lang.text :as str]
             [jp-go-dds.core :as dds]
             [jp-go-dds.page :as page]

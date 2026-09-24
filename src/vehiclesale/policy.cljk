@@ -41,7 +41,7 @@
    28. demo-inventory-gate     (seed/demo stock is not for sale)
    29. inquiry-party-gate      (reply only by buyer or listing owner)"
 
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [kotoba.lang.text :as str]
             [vehiclesale.body :as body]
             [vehiclesale.border :as border]

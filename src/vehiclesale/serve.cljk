@@ -3,7 +3,7 @@
 
   JDK HttpServer — no new dependency. API bodies are EDN or HTML forms.
   Durable file is gitignored. This process still does not move yen."
-  (:require [kotoba.lang.edn :as edn]
+  (:require [kotoba.http.form-urlencoded :as form-urlencoded] [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]
             [kotoba.lang.text :as str]
             [vehiclesale.catalog :as catalog]
@@ -11,7 +11,7 @@
             [vehiclesale.render-html :as rh]
             [vehiclesale.store :as store])
   (:import [com.sun.net.httpserver HttpExchange HttpHandler HttpServer]
-           [java.net InetSocketAddress URLDecoder]
+           [java.net InetSocketAddress]
            [java.nio.charset StandardCharsets]))
 
 (def ^:private utf8 StandardCharsets/UTF_8)
@@ -66,8 +66,8 @@
         (for [pair (str/split (str s) #"&")
               :when (seq pair)
               :let [[k v] (str/split pair #"=" 2)
-                    dk (keyword (URLDecoder/decode (or k "") "UTF-8"))
-                    dv (URLDecoder/decode (or v "") "UTF-8")]]
+                    dk (keyword (form-urlencoded/form-decode (or k "")))
+                    dv (form-urlencoded/form-decode (or v ""))]]
           [dk dv])))
 
 (defn- read-body [^HttpExchange ex]

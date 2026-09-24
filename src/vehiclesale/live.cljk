@@ -4,7 +4,7 @@
   Accounts hold a salted SHA-256 of the passphrase, never the passphrase.
   Writes still go VehicleSale-LLM ⊣ VehicleSaleGovernor. This namespace
   does not bypass the governor. Yen does not move (`execute?` stays false)."
-  (:require [kotoba.lang.text :as str]
+  (:require [kotoba.bytes :as kbytes] [kotoba.lang.text :as str]
             [langgraph.graph :as g]
             [vehiclesale.body :as body]
             [vehiclesale.operation :as op]
@@ -21,7 +21,7 @@
 (defn sha256-hex
   [s]
   (let [md (MessageDigest/getInstance "SHA-256")]
-    (bytes->hex (.digest md (.getBytes (str s) "UTF-8")))))
+    (bytes->hex (.digest md (kbytes/utf8-bytes (str s))))))
 
 (defn digest-passphrase
   [salt password]

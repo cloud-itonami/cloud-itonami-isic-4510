@@ -6,7 +6,7 @@
   JP `:vehicle/list` / `:scan/record` whose angle set is short of
   `required-angles`. CIDs in demo data are fictitious labels, not IPFS
   objects — do not GET them."
-  (:require [clojure.set :as set]))
+  (:require [kotoba.lang.coll :as set]))
 
 (def required-angles
   "Minimum Carsensor-like pack. Engine / underbody / trunk are optional."
