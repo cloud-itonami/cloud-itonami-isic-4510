@@ -1,5 +1,5 @@
 (ns vehiclesale.facts-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [vehiclesale.facts :as facts]))
 
 (deftest catalog-entries-are-well-formed

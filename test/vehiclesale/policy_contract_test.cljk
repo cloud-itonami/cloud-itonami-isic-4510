@@ -3,7 +3,7 @@
   test: VehicleSale-LLM never lists/confirms/discloses/resolves a record
   the VehicleSaleGovernor would reject, and every decision (commit OR hold)
   leaves exactly one ledger fact."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [langgraph.graph :as g]
             [vehiclesale.commerce :as commerce]
             [vehiclesale.store :as store]

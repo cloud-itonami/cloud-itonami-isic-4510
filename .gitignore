@@ -3,3 +3,4 @@
 /.clj-kondo/.cache/
 /.live.edn
 /.live.edn.bak
+.nbb/

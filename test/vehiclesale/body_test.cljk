@@ -1,5 +1,5 @@
 (ns vehiclesale.body-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [vehiclesale.body :as body]))
 
 (deftest demo-scan-covers-required-angles

@@ -1,5 +1,5 @@
 (ns vehiclesale.commerce-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [vehiclesale.commerce :as commerce]
             [vehiclesale.running-cost :as cost]))
 
