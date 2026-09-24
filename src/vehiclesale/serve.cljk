@@ -3,7 +3,7 @@
 
   JDK HttpServer — no new dependency. API bodies are EDN or HTML forms.
   Durable file is gitignored. This process still does not move yen."
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]
             [kotoba.lang.text :as str]
             [vehiclesale.catalog :as catalog]

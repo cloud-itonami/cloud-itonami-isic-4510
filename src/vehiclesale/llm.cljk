@@ -16,7 +16,7 @@
     {:summary str :rationale str :cites [kw|str ..]
      :source {:class kw :ref str :license-id str?}|nil
      :effect kw :value map|nil :columns [kw ..]|nil :confidence 0..1}"
-  (:require #?(:clj  [clojure.edn :as edn]
+  (:require #?(:clj  [kotoba.lang.edn :as edn]
                :cljs [cljs.reader :as edn])
             [kotoba.lang.text :as str]
             [langchain.model :as model]
