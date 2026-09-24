@@ -1,5 +1,5 @@
 (ns vehiclesale.x402-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [vehiclesale.x402 :as x402]))
 
 (deftest challenge-is-402-shape-not-yen

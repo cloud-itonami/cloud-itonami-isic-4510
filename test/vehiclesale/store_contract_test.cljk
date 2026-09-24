@@ -1,5 +1,5 @@
 (ns vehiclesale.store-contract-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [vehiclesale.store :as store]))
 
 (defn- backends []
